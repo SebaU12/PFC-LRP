@@ -1,0 +1,1 @@
+/etc/profiles/per-user/sebau12/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_local_search.dir/link.d CMakeFiles/test_local_search.dir/tests/test_local_search.cpp.o -o test_local_search  libmapm_lib.a liblrp_core.a

@@ -1,0 +1,1 @@
+/etc/profiles/per-user/sebau12/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_alns.dir/link.d CMakeFiles/test_alns.dir/tests/test_alns.cpp.o -o test_alns  libalns_lib.a liblrp_core.a

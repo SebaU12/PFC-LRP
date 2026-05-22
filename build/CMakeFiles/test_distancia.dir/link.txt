@@ -1,0 +1,1 @@
+/etc/profiles/per-user/sebau12/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_distancia.dir/link.d CMakeFiles/test_distancia.dir/tests/test_distancia.cpp.o -o test_distancia  libmapm_lib.a liblrp_core.a

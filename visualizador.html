@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Visualizador LRP</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;background:#1a1a2e;color:#e0e0e0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#toolbar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#12122a;border-bottom:1px solid #2a2a4a;flex-shrink:0;flex-wrap:wrap}
+#toolbar h1{font-size:13px;font-weight:600;color:#a8b4ff;margin-right:6px}
+.sep{width:1px;height:20px;background:#2a2a4a;flex-shrink:0}
+label{font-size:11px;color:#8888aa;white-space:nowrap}
+input[type=file]{font-size:11px;color:#c0c0e0;background:#1e1e3a;border:1px solid #3a3a6a;border-radius:4px;padding:2px 6px;cursor:pointer;max-width:200px}
+input[type=range]{width:80px;accent-color:#6a7fff}
+button{font-size:11px;background:#2a2a4a;color:#c0c0ff;border:1px solid #3a3a6a;border-radius:4px;padding:3px 9px;cursor:pointer;white-space:nowrap}
+button:hover{background:#3a3a6a}
+button.active{background:#4a4aaa;color:#fff;border-color:#6a6aff}
+#cost-badge{font-size:11px;background:#1e1e3a;border:1px solid #3a3a6a;border-radius:4px;padding:2px 8px;color:#aaffaa}
+#stats{font-size:11px;color:#7788aa}
+#main{display:flex;flex:1;overflow:hidden}
+#sidebar{width:200px;flex-shrink:0;background:#12122a;border-right:1px solid #2a2a4a;overflow-y:auto;padding:8px}
+#sidebar h2{font-size:11px;font-weight:600;color:#7788aa;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 5px}
+.depot-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;margin-bottom:2px;font-size:11px}
+.depot-item:hover{background:#1e1e3a}
+.depot-item.dim{opacity:.4}
+.color-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.route-item{display:flex;align-items:center;gap:5px;padding:3px 6px 3px 22px;border-radius:4px;cursor:pointer;margin-bottom:1px;font-size:10px;color:#9090b0}
+.route-item:hover{background:#1e1e3a}
+.route-item.dim{opacity:.35}
+#canvas-wrap{flex:1;position:relative;overflow:hidden}
+canvas{position:absolute;top:0;left:0}
+#tooltip{position:absolute;pointer-events:none;background:#0d0d1e;border:1px solid #3a3a6a;border-radius:5px;padding:5px 9px;font-size:11px;color:#d0d0f0;display:none;max-width:200px;z-index:10;line-height:1.6}
+#drop-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;pointer-events:none}
+#drop-hint .big{font-size:36px;opacity:.25}
+#drop-hint p{font-size:13px;color:#5566aa;text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>🗺 LRP Visualizador</h1>
+  <input type="file" id="file-input" accept=".json" title="Cargar solucion_inicial.json">
+  <div class="sep"></div>
+  <label>Nodos <input type="range" id="sl-node" min="4" max="18" value="8"></label>
+  <label>Fuente <input type="range" id="sl-font" min="8" max="16" value="11"></label>
+  <div class="sep"></div>
+  <button id="btn-routes" class="active">Rutas</button>
+  <button id="btn-labels">Etiquetas</button>
+  <button id="btn-demand">Demanda</button>
+  <button id="btn-fit">⊡ Fit</button>
+  <div class="sep"></div>
+  <span id="cost-badge">—</span>
+  <span id="stats"></span>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div id="depot-list"></div>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div id="tooltip"></div>
+    <div id="drop-hint">
+      <div class="big">📂</div>
+      <p>Carga el archivo <strong>solucion_inicial.json</strong><br>generado por el exportador C++</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const PALETA = [
+  '#6a80ff','#ff7c6e','#4ecdc4','#f7b731','#a29bfe',
+  '#fd79a8','#55efc4','#e17055','#74b9ff','#b8e994',
+  '#fdcb6e','#81ecec','#fab1a0','#dfe6e9','#636e72'
+];
+
+let data = null;
+let cam = {x:0,y:0,scale:1};
+let showRoutes = true, showLabels = false, showDemand = false;
+let hiddenDepots = new Set(), hiddenRoutes = new Set();
+let nodeR = 8, fontSize = 11;
+let drag = null, lastMouse = null;
+let hovered = null;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvas-wrap');
+const tooltip = document.getElementById('tooltip');
+const hint = document.getElementById('drop-hint');
+
+function resize() {
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── Controles toolbar ────────────────────────────────────────
+document.getElementById('sl-node').oninput = e => { nodeR = +e.target.value; draw(); };
+document.getElementById('sl-font').oninput = e => { fontSize = +e.target.value; draw(); };
+
+function toggle(btn, varRef, setter) {
+  document.getElementById(btn).addEventListener('click', function() {
+    setter(!varRef());
+    this.classList.toggle('active');
+    draw();
+  });
+}
+document.getElementById('btn-routes').addEventListener('click', function() {
+  showRoutes = !showRoutes; this.classList.toggle('active'); draw();
+});
+document.getElementById('btn-labels').addEventListener('click', function() {
+  showLabels = !showLabels; this.classList.toggle('active'); draw();
+});
+document.getElementById('btn-demand').addEventListener('click', function() {
+  showDemand = !showDemand; this.classList.toggle('active'); draw();
+});
+document.getElementById('btn-fit').addEventListener('click', fitView);
+
+// ── Carga de archivo ────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => { loadData(JSON.parse(ev.target.result)); };
+  r.readAsText(f);
+});
+
+// Drag & drop sobre el canvas
+wrap.addEventListener('dragover', e => { e.preventDefault(); });
+wrap.addEventListener('drop', e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => { loadData(JSON.parse(ev.target.result)); };
+  r.readAsText(f);
+});
+
+function loadData(d) {
+  data = d;
+  hiddenDepots.clear(); hiddenRoutes.clear();
+  hint.style.display = 'none';
+  document.getElementById('cost-badge').textContent =
+    'Costo: ' + parseFloat(d.costo).toLocaleString('es', {maximumFractionDigits:1});
+  const nd = (d.depositos||[]).filter(x=>x.abierto).length;
+  const nr = (d.rutas||[]).length;
+  document.getElementById('stats').textContent =
+    `${d.num_clientes} clientes · ${nd} depósitos abiertos · ${nr} rutas`;
+  buildSidebar();
+  fitView();
+}
+
+function buildSidebar() {
+  if (!data) return;
+  const el = document.getElementById('depot-list');
+  el.innerHTML = '';
+
+  const byDepot = {};
+  (data.rutas||[]).forEach((r,i) => {
+    if (!byDepot[r.deposito_id]) byDepot[r.deposito_id] = [];
+    byDepot[r.deposito_id].push({r,i});
+  });
+
+  (data.depositos||[]).filter(d=>d.abierto).forEach(dep => {
+    const color = PALETA[dep.color_idx % PALETA.length];
+    const h2 = document.createElement('h2');
+    h2.textContent = `Depósito ${dep.id}`;
+    el.appendChild(h2);
+
+    const di = document.createElement('div');
+    di.className = 'depot-item';
+    di.innerHTML = `<div class="color-dot" style="background:${color}"></div>
+      <span>D${dep.id} (x${dep.x.toFixed(0)},y${dep.y.toFixed(0)})</span>`;
+    di.title = `Cap: ${dep.capacidad} | Costo: ${dep.costo_apertura}`;
+    di.addEventListener('click', () => {
+      hiddenDepots.has(dep.id) ? hiddenDepots.delete(dep.id) : hiddenDepots.add(dep.id);
+      di.classList.toggle('dim', hiddenDepots.has(dep.id));
+      draw();
+    });
+    el.appendChild(di);
+
+    (byDepot[dep.id]||[]).forEach(({r,i}) => {
+      const ri = document.createElement('div');
+      ri.className = 'route-item';
+      ri.innerHTML = `<div class="color-dot" style="background:${color};width:7px;height:7px"></div>
+        Ruta ${i+1} (${r.clientes.length} cli · dem ${r.demanda.toFixed(0)})`;
+      ri.addEventListener('click', () => {
+        hiddenRoutes.has(i) ? hiddenRoutes.delete(i) : hiddenRoutes.add(i);
+        ri.classList.toggle('dim', hiddenRoutes.has(i));
+        draw();
+      });
+      el.appendChild(ri);
+    });
+  });
+
+  if ((data.no_asignados||[]).length) {
+    const h2 = document.createElement('h2');
+    h2.textContent = `Sin asignar (${data.no_asignados.length})`;
+    el.appendChild(h2);
+  }
+}
+
+// ── Proyección coordenadas ───────────────────────────────────
+function allCoords() {
+  if (!data) return [];
+  return [
+    ...(data.clientes||[]).map(c=>({x:c.x,y:c.y})),
+    ...(data.depositos||[]).map(d=>({x:d.x,y:d.y}))
+  ];
+}
+
+function fitView() {
+  if (!data) return;
+  const pts = allCoords();
+  if (!pts.length) return;
+  const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  const minY=Math.min(...ys), maxY=Math.max(...ys);
+  const pad = 60;
+  const W = canvas.width - 200 - pad*2;  // restar sidebar
+  const H = canvas.height - pad*2;
+  const rangeX = maxX-minX||1, rangeY = maxY-minY||1;
+  cam.scale = Math.min(W/rangeX, H/rangeY) * 0.9;
+  cam.x = (canvas.width/2) - ((minX+maxX)/2)*cam.scale;
+  cam.y = (canvas.height/2) - ((minY+maxY)/2)*cam.scale;
+  draw();
+}
+
+function toScreen(x,y) {
+  return { sx: x*cam.scale+cam.x, sy: y*cam.scale+cam.y };
+}
+function fromScreen(sx,sy) {
+  return { x:(sx-cam.x)/cam.scale, y:(sy-cam.y)/cam.scale };
+}
+
+// ── Pan & Zoom ──────────────────────────────────────────────
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.12 : 0.89;
+  cam.x = mx - (mx-cam.x)*factor;
+  cam.y = my - (my-cam.y)*factor;
+  cam.scale *= factor;
+  draw();
+}, {passive:false});
+
+canvas.addEventListener('mousedown', e => {
+  drag = {sx:cam.x, sy:cam.y, mx:e.clientX, my:e.clientY};
+});
+canvas.addEventListener('mousemove', e => {
+  if (drag) {
+    cam.x = drag.sx + (e.clientX-drag.mx);
+    cam.y = drag.sy + (e.clientY-drag.my);
+    draw();
+  }
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+  checkHover(mx, my, e.clientX, e.clientY);
+});
+canvas.addEventListener('mouseup', () => drag=null);
+canvas.addEventListener('mouseleave', () => { drag=null; tooltip.style.display='none'; hovered=null; });
+
+function checkHover(mx,my,cx,cy) {
+  if (!data) return;
+  hovered = null;
+  let best = nodeR*nodeR*4;
+  const check = (arr, type) => arr.forEach(n => {
+    const {sx,sy} = toScreen(n.x,n.y);
+    const d2 = (mx-sx)**2+(my-sy)**2;
+    if (d2 < best) { best=d2; hovered={...n,type}; }
+  });
+  check(data.clientes||[], 'cliente');
+  check(data.depositos||[], 'deposito');
+  if (hovered) {
+    let html = '';
+    if (hovered.type==='cliente') {
+      html = `<b>Cliente ${hovered.id}</b><br>x:${hovered.x} y:${hovered.y}<br>Demanda: ${hovered.demanda}`;
+      if (hovered.huerfano) html += '<br><span style="color:#ff7070">⚠ Sin asignar</span>';
+    } else {
+      html = `<b>Depósito ${hovered.id}</b><br>x:${hovered.x} y:${hovered.y}`;
+      html += `<br>Capacidad: ${hovered.capacidad}<br>Costo apert.: ${hovered.costo_apertura}`;
+      html += hovered.abierto ? '<br><span style="color:#7fff7f">● Abierto</span>' : '<br><span style="color:#ff7070">● Cerrado</span>';
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (cx+12-wrap.getBoundingClientRect().left)+'px';
+    tooltip.style.top  = (cy-8 -wrap.getBoundingClientRect().top)+'px';
+  } else {
+    tooltip.style.display = 'none';
+  }
+  draw();
+}
+
+// ── Dibujo principal ─────────────────────────────────────────
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  if (!data) return;
+
+  // Fondo suave
+  ctx.fillStyle = '#0d0d1e';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid suave
+  ctx.strokeStyle = 'rgba(80,80,150,0.12)';
+  ctx.lineWidth = 1;
+  const step = Math.pow(10, Math.floor(Math.log10(100/cam.scale)));
+  const [wl,wt] = [fromScreen(0,0).x, fromScreen(0,0).y];
+  const [wr,wb] = [fromScreen(W,H).x, fromScreen(W,H).y];
+  for (let gx=Math.ceil(wl/step)*step; gx<=wr; gx+=step) {
+    const {sx} = toScreen(gx,0); ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,H); ctx.stroke();
+  }
+  for (let gy=Math.ceil(wt/step)*step; gy<=wb; gy+=step) {
+    const {sy} = toScreen(0,gy); ctx.beginPath(); ctx.moveTo(0,sy); ctx.lineTo(W,sy); ctx.stroke();
+  }
+
+  // ── Rutas ─────────────────────────────────────────────────
+  if (showRoutes) {
+    (data.rutas||[]).forEach((ruta, ri) => {
+      if (hiddenDepots.has(ruta.deposito_id) || hiddenRoutes.has(ri)) return;
+      const dep = data.depositos.find(d=>d.id===ruta.deposito_id);
+      if (!dep) return;
+      const color = PALETA[ruta.color_idx % PALETA.length];
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.8;
+      ctx.globalAlpha = 0.55;
+      ctx.setLineDash([]);
+
+      const seq = [dep, ...ruta.clientes.map(cid=>data.clientes.find(c=>c.id===cid)), dep];
+      ctx.beginPath();
+      seq.forEach((n,i) => {
+        const {sx,sy} = toScreen(n.x,n.y);
+        i===0 ? ctx.moveTo(sx,sy) : ctx.lineTo(sx,sy);
+      });
+      ctx.stroke();
+
+      // Flechas en cada segmento
+      ctx.globalAlpha = 0.75;
+      for (let i=0; i<seq.length-1; i++) {
+        const a = seq[i], b = seq[i+1];
+        const {sx:ax,sy:ay} = toScreen(a.x,a.y);
+        const {sx:bx,sy:by} = toScreen(b.x,b.y);
+        const dx=bx-ax, dy=by-ay, len=Math.hypot(dx,dy);
+        if (len < 1) continue;
+        const mx=ax+dx*0.52, my=ay+dy*0.52;
+        const angle = Math.atan2(dy,dx);
+        const hs = 5*Math.min(cam.scale/4,1.4);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(mx+Math.cos(angle)*hs, my+Math.sin(angle)*hs);
+        ctx.lineTo(mx+Math.cos(angle+2.4)*hs, my+Math.sin(angle+2.4)*hs);
+        ctx.lineTo(mx+Math.cos(angle-2.4)*hs, my+Math.sin(angle-2.4)*hs);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+
+      // Etiqueta demanda en mitad de ruta
+      if (showDemand && ruta.clientes.length > 0) {
+        const mid = ruta.clientes[Math.floor(ruta.clientes.length/2)];
+        const mn = data.clientes.find(c=>c.id===mid);
+        if (mn) {
+          const {sx,sy} = toScreen(mn.x, mn.y);
+          ctx.save();
+          ctx.font = `${fontSize-2}px sans-serif`;
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.85;
+          ctx.fillText(`d=${ruta.demanda.toFixed(0)}`, sx+nodeR+3, sy-nodeR-2);
+          ctx.restore();
+        }
+      }
+    });
+  }
+
+  // ── Clientes ──────────────────────────────────────────────
+  (data.clientes||[]).forEach(c => {
+    const {sx,sy} = toScreen(c.x,c.y);
+    const isHov = hovered && hovered.type==='cliente' && hovered.id===c.id;
+
+    // Encontrar color del depósito de esta ruta
+    let routeColor = '#8888ff';
+    if (!c.huerfano) {
+      const ruta = (data.rutas||[]).find(r=>r.clientes.includes(c.id));
+      if (ruta) routeColor = PALETA[ruta.color_idx % PALETA.length];
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(sx, sy, isHov ? nodeR*1.35 : nodeR, 0, Math.PI*2);
+
+    if (c.huerfano) {
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3,2]);
+      ctx.fillStyle = 'rgba(255,50,50,0.2)';
+    } else {
+      ctx.strokeStyle = routeColor;
+      ctx.lineWidth = isHov ? 2 : 1.2;
+      ctx.fillStyle = isHov ? routeColor+'55' : routeColor+'28';
+    }
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+
+    if (showLabels) {
+      ctx.save();
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.fillStyle = isHov ? '#ffffff' : '#9090cc';
+      ctx.fillText(c.id, sx+nodeR+3, sy+4);
+      ctx.restore();
+    }
+    if (showDemand) {
+      ctx.save();
+      ctx.font = `${fontSize-1}px sans-serif`;
+      ctx.fillStyle = '#6688aa';
+      ctx.fillText(c.demanda, sx+nodeR+3, sy+fontSize+2);
+      ctx.restore();
+    }
+  });
+
+  // ── Depósitos ─────────────────────────────────────────────
+  (data.depositos||[]).forEach(dep => {
+    const {sx,sy} = toScreen(dep.x,dep.y);
+    const color = dep.abierto ? PALETA[(dep.color_idx||0) % PALETA.length] : '#555577';
+    const isHov = hovered && hovered.type==='deposito' && hovered.id===dep.id;
+    const hidden = hiddenDepots.has(dep.id);
+    const r = (isHov ? nodeR*1.4 : nodeR) * 1.5;
+
+    ctx.save();
+    ctx.globalAlpha = hidden ? 0.3 : (dep.abierto ? 1 : 0.45);
+
+    // Cuadrado rotado 45° = diamante
+    ctx.beginPath();
+    ctx.moveTo(sx, sy-r);
+    ctx.lineTo(sx+r, sy);
+    ctx.lineTo(sx, sy+r);
+    ctx.lineTo(sx-r, sy);
+    ctx.closePath();
+
+    ctx.fillStyle = dep.abierto ? color+'33' : '#33334466';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = isHov ? 2.5 : 1.8;
+    ctx.fill(); ctx.stroke();
+
+    // Icono almacén: letra D dentro
+    ctx.fillStyle = color;
+    ctx.font = `bold ${Math.max(9,nodeR)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('D', sx, sy);
+    ctx.restore();
+
+    if (showLabels || dep.abierto) {
+      ctx.save();
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillStyle = dep.abierto ? color : '#888899';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(dep.id, sx+r+4, sy);
+      ctx.restore();
+    }
+  });
+
+  // ── Leyenda ───────────────────────────────────────────────
+  const lx = 14, ly = H - 30;
+  ctx.save();
+  ctx.font = `${fontSize-1}px sans-serif`;
+  ctx.fillStyle = '#445566';
+  ctx.fillText(`Zoom: ${(cam.scale).toFixed(2)}x  |  Rueda = zoom  Pan = arrastrar`, lx, ly);
+  ctx.restore();
+}
+
+// Primer draw vacío
+draw();
+</script>
+</body>
+</html>

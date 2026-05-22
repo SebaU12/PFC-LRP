@@ -1,0 +1,2 @@
+/etc/profiles/per-user/sebau12/bin/ar qc libmapm_lib.a CMakeFiles/mapm_lib.dir/src/mapm/cromosoma.cpp.o CMakeFiles/mapm_lib.dir/src/mapm/split.cpp.o CMakeFiles/mapm_lib.dir/src/mapm/poblacion.cpp.o CMakeFiles/mapm_lib.dir/src/mapm/distancia_sol.cpp.o CMakeFiles/mapm_lib.dir/src/mapm/operadores_ga.cpp.o CMakeFiles/mapm_lib.dir/src/mapm/local_search.cpp.o CMakeFiles/mapm_lib.dir/src/mapm/mapm.cpp.o
+/etc/profiles/per-user/sebau12/bin/ranlib libmapm_lib.a
