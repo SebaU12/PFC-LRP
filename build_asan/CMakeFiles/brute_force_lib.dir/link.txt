@@ -1,0 +1,2 @@
+/etc/profiles/per-user/sebau12/bin/ar qc libbrute_force_lib.a CMakeFiles/brute_force_lib.dir/src/brute_force/solver.cpp.o
+/etc/profiles/per-user/sebau12/bin/ranlib libbrute_force_lib.a

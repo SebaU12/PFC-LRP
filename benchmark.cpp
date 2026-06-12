@@ -6,6 +6,7 @@
 #include "src/mapm/mapm.h"
 #include "src/parser.h"
 #include "src/solucion_inicial.h"
+#include "src/validador.h"
 
 #include <algorithm>
 #include <chrono>
@@ -91,7 +92,22 @@ struct ResultadoInstancia {
   int nb_dep;
   int nb_veh;
   bool factible;
+  bool val_ok;
+  bool val_r1, val_r3, val_r4, val_r5, val_r6;
 };
+
+static std::string etiqueta_val(const ResultadoInstancia &r) {
+  if (r.val_ok) return "";
+  std::string t = " [";
+  if (!r.val_r1) t += "R1 ";
+  if (!r.val_r3) t += "R3 ";
+  if (!r.val_r4) t += "R4 ";
+  if (!r.val_r5) t += "R5 ";
+  if (!r.val_r6) t += "R6 ";
+  if (t.back() == ' ') t.back() = ']';
+  else t += ']';
+  return t;
+}
 
 // ─────────────────────────────────────────
 // Ejecutar un algoritmo sobre una instancia
@@ -131,7 +147,14 @@ procesar_instancia(const std::string &ruta_dat,
   res.nb_veh = 0;
   for (const auto &[d, l] : mejor.rutas)
     res.nb_veh += (int)l.size();
-  res.factible = mejor.no_asignados.empty();
+  auto val = validar_solucion(mejor, /*imprimir=*/false);
+  res.factible = val.factible;
+  res.val_ok   = val.factible;
+  res.val_r1   = val.r1_ok;
+  res.val_r3   = val.r3_ok;
+  res.val_r4   = val.r4_ok;
+  res.val_r5   = val.r5_ok;
+  res.val_r6   = val.r6_ok;
 
   if (res.bks > 0)
     res.gap_bks = (res.costo_final - res.bks) / res.bks * 100.0;
@@ -174,7 +197,7 @@ static void imprimir_tabla(const std::vector<ResultadoInstancia> &resultados) {
       std::cout << std::setw(wbks) << "N/A" << std::setw(wgap) << "N/A";
     }
     std::cout << std::fixed << std::setprecision(1) << std::setw(wt)
-              << r.tiempo_seg << (r.factible ? "" : " [INF]") << "\n";
+              << r.tiempo_seg << etiqueta_val(r) << "\n";
   }
   line();
   if (gap_cnt > 0)
@@ -247,7 +270,7 @@ imprimir_tabla_comparativa(const std::vector<ResultadoInstancia> &alns,
       std::cout << "  =";
       ++ties;
     }
-    std::cout << (a.factible && m.factible ? "" : " [INF]") << "\n";
+    std::cout << etiqueta_val(a) << etiqueta_val(m) << "\n";
 
     if (a.bks > 0 && m.bks > 0) {
       gap_alns += a.gap_bks;
@@ -272,13 +295,17 @@ static void exportar_csv(const std::vector<ResultadoInstancia> &resultados,
                          const std::string &ruta) {
   std::ofstream f(ruta);
   f << "instancia,n,m,costo_inicial,cd,cr,costo_final,"
-       "bks,gap_bks_pct,cpu_seg,nb_dep,nb_veh,factible\n";
+       "bks,gap_bks_pct,cpu_seg,nb_dep,nb_veh,factible,"
+       "val_ok,val_r1,val_r3,val_r4,val_r5,val_r6\n";
   for (const auto &r : resultados) {
     f << r.nombre << "," << r.num_clientes << "," << r.num_depositos << ","
       << std::fixed << std::setprecision(2) << r.costo_inicial << "," << r.cd
       << "," << r.cr << "," << r.costo_final << "," << r.bks << "," << r.gap_bks
       << "," << r.tiempo_seg << "," << r.nb_dep << "," << r.nb_veh << ","
-      << (r.factible ? "1" : "0") << "\n";
+      << (r.factible ? "1" : "0") << ","
+      << (r.val_ok ? "1" : "0") << "," << (r.val_r1 ? "1" : "0") << ","
+      << (r.val_r3 ? "1" : "0") << "," << (r.val_r4 ? "1" : "0") << ","
+      << (r.val_r5 ? "1" : "0") << "," << (r.val_r6 ? "1" : "0") << "\n";
   }
   std::cout << "CSV exportado → " << ruta << "\n";
 }
@@ -292,8 +319,8 @@ exportar_csv_comparativo(const std::vector<ResultadoInstancia> &alns,
                          const std::string &ruta) {
   std::ofstream f(ruta);
   f << "instancia,n,m,bks,"
-       "alns_costo,alns_gap_pct,alns_cpu_seg,alns_nb_dep,alns_nb_veh,"
-       "mapm_costo,mapm_gap_pct,mapm_cpu_seg,mapm_nb_dep,mapm_nb_veh,"
+       "alns_costo,alns_gap_pct,alns_cpu_seg,alns_nb_dep,alns_nb_veh,alns_val_ok,"
+       "mapm_costo,mapm_gap_pct,mapm_cpu_seg,mapm_nb_dep,mapm_nb_veh,mapm_val_ok,"
        "mejor\n";
   for (int i = 0; i < (int)alns.size() && i < (int)mapm.size(); ++i) {
     const auto &a = alns[i];
@@ -304,9 +331,10 @@ exportar_csv_comparativo(const std::vector<ResultadoInstancia> &alns,
     f << a.nombre << "," << a.num_clientes << "," << a.num_depositos << ","
       << std::fixed << std::setprecision(2) << a.bks << "," << a.costo_final
       << "," << a.gap_bks << "," << a.tiempo_seg << "," << a.nb_dep << ","
-      << a.nb_veh << "," << m.costo_final << "," << m.gap_bks << ","
-      << m.tiempo_seg << "," << m.nb_dep << "," << m.nb_veh << "," << mejor
-      << "\n";
+      << a.nb_veh << "," << (a.val_ok ? "1" : "0") << ","
+      << m.costo_final << "," << m.gap_bks << ","
+      << m.tiempo_seg << "," << m.nb_dep << "," << m.nb_veh << ","
+      << (m.val_ok ? "1" : "0") << "," << mejor << "\n";
   }
   std::cout << "CSV comparativo exportado → " << ruta << "\n";
 }
@@ -407,7 +435,9 @@ int main(int argc, char *argv[]) {
           std::cout << " gap=" << std::fixed << std::setprecision(2)
                     << res.gap_bks << "%";
         std::cout << " (" << std::fixed << std::setprecision(1)
-                  << res.tiempo_seg << "s)\n";
+                  << res.tiempo_seg << "s)"
+                  << (res.val_ok ? " VAL:OK" : " VAL:FAIL" + etiqueta_val(res))
+                  << "\n";
         resultados.push_back(res);
       } catch (const std::exception &e) {
         std::cerr << "ERROR: " << e.what() << "\n";
@@ -441,9 +471,11 @@ int main(int argc, char *argv[]) {
 
       std::cout << "ALNS=" << std::setw(8) << (long long)ra.costo_final << " ("
                 << std::fixed << std::setprecision(1) << ra.tiempo_seg << "s)"
+                << (ra.val_ok ? " VAL:OK" : " VAL:FAIL" + etiqueta_val(ra))
                 << "  MAPM=" << std::setw(8) << (long long)rm.costo_final
                 << " (" << std::fixed << std::setprecision(1) << rm.tiempo_seg
-                << "s)";
+                << "s)"
+                << (rm.val_ok ? " VAL:OK" : " VAL:FAIL" + etiqueta_val(rm));
       double diff = ra.costo_final - rm.costo_final;
       if (diff > 1e-3)
         std::cout << "  → MA|PM gana";

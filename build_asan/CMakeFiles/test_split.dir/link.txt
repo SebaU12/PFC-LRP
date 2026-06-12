@@ -1,0 +1,1 @@
+/etc/profiles/per-user/sebau12/bin/c++ -fsanitize=address -g -O1 -fsanitize=address -Wl,--dependency-file=CMakeFiles/test_split.dir/link.d CMakeFiles/test_split.dir/tests/test_split.cpp.o -o test_split  libmapm_lib.a liblrp_core.a

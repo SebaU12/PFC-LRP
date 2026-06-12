@@ -1,0 +1,8 @@
+\beamer@sectionintoc {1}{Arquitectura del Software}{3}{0}{1}
+\beamer@sectionintoc {2}{Algoritmo de Fuerza Bruta}{5}{0}{2}
+\beamer@sectionintoc {3}{ALNS: Adaptive Large Neighborhood Search}{8}{0}{3}
+\beamer@sectionintoc {4}{MA$|$PM: Algoritmo Memético}{11}{0}{4}
+\beamer@sectionintoc {5}{Ejemplo Paso a Paso}{15}{0}{5}
+\beamer@sectionintoc {6}{Validación contra Fuerza Bruta}{25}{0}{6}
+\beamer@sectionintoc {7}{Resultados en Benchmark Prodhon}{28}{0}{7}
+\beamer@sectionintoc {8}{Conclusiones}{29}{0}{8}

@@ -19,6 +19,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <unordered_map>
 
 // =============================================================================
 // FUNCIONES AUXILIARES COMPARTIDAS
@@ -312,33 +313,61 @@ static std::tuple<double, int, int, int> mejor_insercion(int cliente,
   const Matriz &mat = *e.matriz;
   const double Q = e.datos->Q;
   const double F = e.datos->F;
+  int nc = e.datos->num_clientes;
   int idx_c = cliente - 1;
   double dem_c = e.datos->clientes[idx_c].demanda;
 
+  // Precalcular la carga actual de cada depósito abierto (R4: sum d_j ≤ W_i)
+  std::unordered_map<int, double> carga_dep;
+  for (int dep_id : e.depositos_abiertos) {
+    double carga = 0.0;
+    for (const auto &r : e.rutas.at(dep_id))
+      for (int c : r.clientes)
+        carga += e.datos->clientes[c - 1].demanda;
+    carga_dep[dep_id] = carga;
+  }
+
   double mejor = std::numeric_limits<double>::infinity();
   int m_dep = -1, m_ri = -1, m_pos = -1;
+  // Mejor opción ignorando capacidad de depósito (fallback si todo está lleno)
+  double mejor_fb = std::numeric_limits<double>::infinity();
+  int fb_dep = -1, fb_ri = -1, fb_pos = -1;
 
   for (int dep_id : e.depositos_abiertos) {
     int idx_dep = dep_id - 1;
+    int dep_idx = dep_id - nc - 1;
+    double cap_dep = e.datos->depositos[dep_idx].capacidad;
+    bool dep_tiene_espacio = (carga_dep[dep_id] + dem_c <= cap_dep + 1e-9);
     const auto &lista = e.rutas.at(dep_id);
 
     // Opción A: insertar en una ruta existente de este depósito
     for (int ri = 0; ri < (int)lista.size(); ++ri) {
       const auto &ruta = lista[ri];
       if (demanda_ruta_externa(ruta, *e.datos) + dem_c > Q)
-        continue; // no cabe — saltar esta ruta
+        continue; // no cabe en el vehículo — saltar esta ruta
       for (int pos = 0; pos <= (int)ruta.clientes.size(); ++pos) {
         int prev = (pos == 0) ? idx_dep : ruta.clientes[pos - 1] - 1;
         int next = (pos == (int)ruta.clientes.size()) ? idx_dep : ruta.clientes[pos] - 1;
         double c = mat[prev][idx_c] + mat[idx_c][next] - mat[prev][next];
-        if (c < mejor) { mejor = c; m_dep = dep_id; m_ri = ri; m_pos = pos; }
+        if (dep_tiene_espacio && c < mejor)
+          { mejor = c; m_dep = dep_id; m_ri = ri; m_pos = pos; }
+        if (c < mejor_fb)
+          { mejor_fb = c; fb_dep = dep_id; fb_ri = ri; fb_pos = pos; }
       }
     }
 
     // Opción B: abrir una ruta nueva solo para este cliente en este depósito
     double c_nueva = mat[idx_dep][idx_c] * 2.0 + F;
-    if (c_nueva < mejor) { mejor = c_nueva; m_dep = dep_id; m_ri = -1; m_pos = 0; }
+    if (dep_tiene_espacio && c_nueva < mejor)
+      { mejor = c_nueva; m_dep = dep_id; m_ri = -1; m_pos = 0; }
+    if (c_nueva < mejor_fb)
+      { mejor_fb = c_nueva; fb_dep = dep_id; fb_ri = -1; fb_pos = 0; }
   }
+
+  // Si ningún depósito tiene espacio, usar el fallback (viola R4 pero evita
+  // dejar el cliente sin asignar, lo que penaliza aún más).
+  if (m_dep == -1) { m_dep = fb_dep; m_ri = fb_ri; m_pos = fb_pos; }
+
   return {mejor, m_dep, m_ri, m_pos};
 }
 

@@ -1,0 +1,2 @@
+/etc/profiles/per-user/sebau12/bin/ar qc libalns_lib.a CMakeFiles/alns_lib.dir/src/alns/operadores.cpp.o CMakeFiles/alns_lib.dir/src/alns/alns.cpp.o CMakeFiles/alns_lib.dir/src/alns/solver.cpp.o
+/etc/profiles/per-user/sebau12/bin/ranlib libalns_lib.a

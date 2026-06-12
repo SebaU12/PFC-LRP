@@ -30,8 +30,9 @@ std::pair<int, int> CromosomaLRP::rango_cs(int dep_idx,
     return {0, 0}; // depósito cerrado — no tiene rango
 
   int inicio = DS[dep_idx] - 1; // convertir 1-based a 0-based
-  int n = inst.num_clientes;
-  int fin = n; // por defecto, va hasta el final de CS
+  // Usar CS.size() como límite real: durante repair(), CS puede tener menos de n
+  // elementos porque se hacen erases antes de los inserts.
+  int fin = (int)CS.size();
 
   // Buscar el depósito abierto cuya sublista empiece justo después de inicio
   for (int j = 0; j < (int)DS.size(); ++j) {
@@ -84,8 +85,11 @@ void repair(CromosomaLRP &crom, const Matriz &mat, const InstanciaLRP &inst) {
   }
 
   // Paso 2: corregir depósitos sobrecargados
+  // Límite de iteraciones para evitar ciclos (ej: dep_i ↔ dep_j oscillation).
+  // Si no converge, quedan violaciones que la función objetivo penalizará.
   bool hubo_cambio = true;
-  while (hubo_cambio) {
+  int max_iter_repair = (n + 1) * (m + 1);
+  while (hubo_cambio && max_iter_repair-- > 0) {
     hubo_cambio = false;
 
     for (int i = 0; i < m; ++i) {
@@ -153,7 +157,21 @@ void repair(CromosomaLRP &crom, const Matriz &mat, const InstanciaLRP &inst) {
             double d = mat[n + j][idx_c];
             if (d < mejor_dist) { mejor_dist = d; destino = j; }
           }
-          crom.DS[destino] = (int)crom.CS.size() + 1; // lo abre al final de CS
+          if (destino != -1) {
+            crom.DS[destino] = (int)crom.CS.size() + 1; // lo abre al final de CS
+          } else {
+            // Todos los depósitos ya están abiertos y sobrecargados:
+            // asignar al que tenga menor exceso de demanda (acepta penalización).
+            double menor_exceso = std::numeric_limits<double>::infinity();
+            for (int j = 0; j < m; ++j) {
+              auto cli_j = crom.clientes_de(j, inst);
+              double dem_j = 0.0;
+              for (int cc : cli_j) dem_j += inst.clientes[cc - 1].demanda;
+              double exceso = dem_j + inst.clientes[idx_c].demanda
+                              - inst.depositos[j].capacidad;
+              if (exceso < menor_exceso) { menor_exceso = exceso; destino = j; }
+            }
+          }
         }
 
         // Insertar el cliente al final de la sublista del depósito destino

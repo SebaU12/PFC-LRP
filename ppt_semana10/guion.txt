@@ -1,0 +1,968 @@
+================================================================
+  GUION DE PRESENTACION — SEMANA 10
+  Diseño e Implementación de Metaheurísticas para el LRP
+  Fuerza Bruta · ALNS · MA|PM — Implementación en C++17
+================================================================
+Nota: los símbolos matemáticos se indican entre paréntesis.
+Tiempo estimado total: 30–35 minutos.
+================================================================
+
+
+---- DIAPOSITIVA 1: PORTADA ----
+[~30 seg]
+
+Buenos días / Buenas tardes, profesor.
+Mi nombre es Sebastián Lizárraga, junto con mi compañero Johannes
+Loayza les presentamos nuestra semana 10 del Proyecto Final de
+Carrera titulado "Diseño e Implementación de Metaheurísticas para
+el Location Routing Problem".
+
+En esta sesión vamos a cubrir tres algoritmos implementados en
+C++17: un solver de Fuerza Bruta exacto, el ALNS y el MA|PM.
+Además mostraremos cómo los validamos formalmente usando la Fuerza
+Bruta como oráculo, y los resultados en las instancias de benchmark
+de Prodhon.
+
+
+---- DIAPOSITIVA 2: AGENDA ----
+[~30 seg]
+
+La presentación tiene seis bloques:
+primero la arquitectura del software,
+luego el algoritmo de Fuerza Bruta,
+después ALNS y MA|PM,
+a continuación un ejemplo numérico paso a paso sobre una instancia
+mínima de cinco nodos que resuelven los tres algoritmos,
+luego la validación contra la Fuerza Bruta,
+y finalmente los resultados en el benchmark de Prodhon con
+conclusiones.
+
+
+================================================================
+SECCIÓN 1: ARQUITECTURA DEL SOFTWARE
+================================================================
+
+---- DIAPOSITIVA 3: ESTRUCTURA DEL PROYECTO ----
+[~2 min]
+
+El proyecto está organizado en tres bibliotecas CMake independientes.
+
+La primera es lrp_core (ele-erre-pe guión bajo core), que concentra
+todo el dominio del problema:
+— el parser que lee los archivos .dat del benchmark de Prodhon,
+— el módulo de distancias que construye la matriz d_ij
+  (d sub i j, costo euclidiano entre el nodo i y el nodo j),
+— la estructura EstadoLRP que representa una solución concreta,
+— la heurística constructiva de solución inicial, y
+— el módulo de exportación a JSON.
+
+La segunda es alns_lib, con la implementación del ALNS:
+operadores, el núcleo del loop y el solver.
+
+La tercera es mapm_lib, con el MA|PM:
+cromosoma, el procedimiento Split, la población y la búsqueda local.
+
+A la derecha del diagrama vemos la interfaz común IAlgoritmo.
+Tanto AlgoritmALNS como AlgoritmMAPM la implementan, devolviendo
+un ResultadoAlgoritmo que contiene el mejor estado encontrado,
+el costo inicial, el costo final, las iteraciones y el historial
+de mejoras. Esto hace que sean completamente intercambiables en
+el ejecutable de benchmark.
+
+Abajo vemos la función objetivo Z que ambos algoritmos minimizan:
+  Z = suma de costos de apertura O_i de los depósitos abiertos
+    + suma sobre cada ruta del costo fijo F más la distancia
+    + 10 elevado a 6 multiplicado por el número de clientes
+      sin asignar (como penalización de infactibilidad).
+
+Esta penalización garantiza que cualquier solución factible sea
+preferida sobre una infactible durante la búsqueda.
+
+
+---- DIAPOSITIVA 4: TIPOS PRINCIPALES ----
+[~2.5 min]
+
+Las estructuras de datos centrales son tres.
+
+EstadoLRP representa una solución: contiene el mapa de rutas
+indexado por depósito, el conjunto de depósitos abiertos y el
+banco de clientes no asignados. Guarda punteros no-owning a la
+matriz de distancias y a la instancia; cuando se necesita una
+copia independiente para evaluar un vecino se usa el método
+.copy() que hace una copia profunda solo de las rutas.
+
+Hay dos convenciones críticas que atraviesan todo el código:
+los nodos son 1-indexados —clientes del 1 al n_c, depósitos del
+n_c+1 al n_c+n_d— y la matriz de distancias es 0-indexada
+internamente, así que al acceder a la distancia entre dos nodos
+se resta 1 al identificador.
+
+Quiero detenerme un momento en el struct Ruta, porque fue un
+cambio importante que hicimos recientemente.
+
+Antes, Ruta era simplemente un alias de vector<int>: una lista
+plana de IDs de clientes. Funcional, pero opaca: si alguien
+preguntaba "¿dónde está el costo de esta ruta?", no había una
+respuesta directa en el objeto.
+
+Ahora Ruta es un struct explícito con cuatro campos:
+— id_deposito: el depósito que origina la ruta, para que sea
+  autocontenida y no haya que consultar la clave del mapa.
+— clientes: el vector<int> de IDs, igual que antes.
+— costo: la distancia total del circuito más el costo fijo F.
+  Esto responde directamente la pregunta de cuánto vale esta ruta.
+— demanda_acumulada: la suma de demandas de los clientes,
+  disponible sin recalcular.
+
+Este cambio hace que la solución sea legible de forma directa:
+al imprimir el estado con imprimir_solucion() se ven los costos
+por ruta sin ningún cálculo adicional.
+
+CromosomaLRP es la representación del MA|PM: tiene dos partes,
+DS (Depot State) y CS (Client Sequence), que explicaremos en
+detalle en la sección de MA|PM.
+
+ResultadoAlgoritmo es el tipo de retorno común: lleva el mejor
+estado, el costo inicial, el costo final, el contador de
+iteraciones y el historial de mejoras para graficar la convergencia.
+
+
+================================================================
+SECCIÓN 2: ALGORITMO DE FUERZA BRUTA
+================================================================
+
+---- DIAPOSITIVA 5: FUERZA BRUTA — ESTRATEGIA EXACTA ----
+[~2 min]
+
+El Location Routing Problem tiene dos decisiones anidadas.
+La primera es cuáles depósitos abrir: hay 2 elevado a m menos 1
+subconjuntos no vacíos posibles, donde m es el número de depósitos.
+La segunda es cómo partir los clientes en rutas para cada
+configuración de depósitos abiertos.
+
+Para resolver la segunda decisión de forma exacta usamos dos
+programas dinámicos anidados:
+
+El primero es Held-Karp. Dado un conjunto de k clientes que forman
+una ruta, encuentra el orden de visita de menor costo en tiempo
+O(2 elevado a k por k al cuadrado). Es el algoritmo exacto clásico
+para el problema del viajante.
+
+El segundo es Set-Cover DP. Dada la tabla de costos de todas las
+posibles rutas —que se obtiene llamando a Held-Karp por cada
+subconjunto factible— encuentra la partición óptima de todos los
+clientes en rutas en tiempo O(3 elevado a n), donde n es el número
+de clientes asignados a ese depósito.
+
+El diagrama de la derecha muestra el flujo: por cada subconjunto S
+de depósitos, se abren los depósitos en S, se llama al Set-Cover DP
+sobre todos los clientes, que internamente llama a Held-Karp por
+cada subconjunto ruta factible, y se guarda si se encontró un nuevo
+óptimo global.
+
+La complejidad total es O(2 elevado a m por 3 elevado a n).
+Es un algoritmo exacto, pero exponencial en n y m. Para instancias
+pequeñas —hasta 20 clientes— el tiempo es manejable y nos sirve
+como validador.
+
+
+---- DIAPOSITIVA 6: HELD-KARP DP ----
+[~2.5 min]
+
+El algoritmo de Held-Karp resuelve el TSP sobre un subconjunto R
+de k clientes partiendo y regresando a un depósito D.
+
+La idea es usar una tabla hk[mask][last] donde:
+— mask es una máscara de bits: el bit i está activo si el cliente
+  r_i ya fue visitado en el recorrido parcial,
+— last es el índice del último cliente visitado,
+— hk[mask][last] almacena el mínimo costo de recorrer exactamente
+  los clientes en mask, terminando en r_last, sin contar el
+  retorno al depósito.
+
+La inicialización pone hk[1<<i][i] igual a la distancia del depósito
+D al cliente r_i, para cada i, representando rutas de un solo cliente.
+
+La transición: para cada mask y cada último cliente activo last,
+se extiende la ruta añadiendo un cliente j que no esté en mask;
+el nuevo costo es hk[mask][last] más la distancia de r_last a r_j.
+
+Al final, el costo mínimo de la ruta completa es F más el mínimo
+sobre todos los last de hk[full][last] más la distancia de r_last
+de vuelta al depósito D, donde full es la máscara con todos los
+bits activos.
+
+En el ejemplo de la diapositiva: ruta {C_2, C_3} desde D_2.
+hk[01][0] = distancia de D_2 a C_2.
+hk[10][1] = distancia de D_2 a C_3.
+hk[11][1] = distancia de D_2 a C_2 más distancia de C_2 a C_3.
+Retorno: hk[11][1] más distancia de C_3 a D_2 más F.
+
+Aquí F es el costo fijo del vehículo, que se suma una sola vez
+al cerrar la ruta.
+
+
+---- DIAPOSITIVA 7: SET-COVER DP ----
+[~2.5 min]
+
+El Set-Cover DP toma como entrada todos los clientes C de un depósito
+y devuelve el costo mínimo de cubrirlos todos con rutas factibles.
+
+Primero se precalculan con Held-Karp los costos rc[T] de cada
+subconjunto T de clientes cuya demanda total no supere la capacidad
+Q del vehículo. Esto es la "tabla de rutas".
+
+Luego se define dp[mask] como el costo mínimo de cubrir exactamente
+los clientes en mask. La base es dp[0] = 0.
+
+La transición: para cada mask, se itera sobre todas las sub-máscaras
+sub de mask. Si la demanda de sub no supera Q, se calcula
+rest = mask XOR sub —los clientes ya cubiertos antes de agregar sub—
+y se actualiza dp[mask] con dp[rest] más rc[sub] si es menor.
+
+La iteración sobre todas las sub-máscaras de mask se hace con el
+truco (sub-1) & mask, que recorre eficientemente todos los
+subconjuntos de una máscara en orden decreciente.
+
+Al final se retorna O(D) más dp[2^n - 1], es decir, el costo de
+apertura del depósito más el costo mínimo de cubrir a todos los n
+clientes asignados.
+
+La alerta explica por qué la complejidad es O(3^n): cada cliente
+puede estar en rest, en sub, o fuera de mask. Son tres opciones
+por cliente, lo que da 3^n combinaciones totales en la suma de
+sub-máscaras.
+
+Juntando Held-Karp y Set-Cover DP, la Fuerza Bruta resuelve el LRP
+de forma exacta para n pequeño.
+
+
+================================================================
+SECCIÓN 3: ALNS
+================================================================
+
+---- DIAPOSITIVA 8: ALNS — LOOP PRINCIPAL Y SIMULATED ANNEALING ----
+[~2.5 min]
+
+El Adaptive Large Neighbourhood Search funciona con un loop
+principal sobre un número fijo de iteraciones —5.000 en nuestra
+implementación.
+
+En cada iteración se selecciona un destructor y un reparador
+mediante una ruleta ponderada por los pesos adaptativos w_d y w_r.
+Se aplica primero el destructor y luego el reparador para generar
+una solución vecina s prima.
+
+Luego se aplica el criterio de aceptación de Simulated Annealing:
+— Si f(s prima) es menor que f(s estrella) —la mejor conocida—,
+  se acepta y se le asigna puntaje sigma_1 = 33 a los operadores.
+— Si solo mejora la solución actual s, puntaje sigma_2 = 9.
+— Si es peor pero U(0,1) es menor que exp(-(f(s prima) - f(s)) / T),
+  se acepta con puntaje sigma_3 = 13. Aquí T es la temperatura.
+— Si se rechaza, puntaje sigma_4 = 1.
+
+La temperatura decae en cada iteración como T_{t+1} = alpha por T_t,
+con alpha = 0.998. Arranca en T_0 = 50.000 y termina en T_end = 1.
+
+Cada T_seg = 100 iteraciones se recalculan los pesos:
+  w_i = w_i por (1 - rho) más rho por (pi_i dividido theta_i)
+donde pi_i es el puntaje acumulado del operador i y theta_i
+el número de veces que fue usado en el segmento. Luego se resetean
+pi_i y theta_i para el siguiente segmento.
+
+La tabla de la derecha resume los parámetros de referencia.
+El factor rho = 0.1 controla cuánto peso tiene el rendimiento
+reciente versus el histórico en la actualización de los pesos.
+
+
+---- DIAPOSITIVA 9: ALNS — OPERADORES DE DESTRUCCIÓN ----
+[~2 min]
+
+Implementamos cinco operadores de destrucción.
+
+El pseudocódigo de la izquierda muestra los dos más simples.
+random_removal extrae q clientes al azar hacia el banco de
+no_asignados. Si la ruta queda vacía, se elimina la ruta (el
+depósito sigue abierto). Es el operador más diversificante.
+worst_removal extrae los q clientes con mayor costo marginal.
+El costo marginal de un cliente c es cuánto ahorraría la ruta
+si c se eliminara de ella.
+
+A la derecha vemos el catálogo completo:
+— shaw_removal agrupa clientes por afinidad geográfica usando la
+  vecindad de Shaw; tiende a crear huecos localizados en la solución.
+— route_removal elimina una ruta completa, liberando todos sus
+  clientes. Genera perturbaciones de mayor magnitud.
+— depot_closing clausura un depósito completo y reasigna todos sus
+  clientes al banco de no_asignados. Este operador es especial
+  porque toca la decisión de localización, no solo el ruteo.
+
+El bloque de alerta señala una limitación importante: depot_closing
+puede cerrar un depósito, pero los reparadores no pueden reabrirlo
+porque solo insertan clientes en depositos_abiertos. Si SA acepta
+el cierre temprano, el algoritmo puede quedar atrapado en soluciones
+sub-óptimas. Volveremos a esto en el ejemplo paso a paso.
+
+
+---- DIAPOSITIVA 10: ALNS — OPERADORES DE REPARACIÓN ----
+[~2 min]
+
+Implementamos dos operadores de reparación.
+
+greedy_repair inserta cada cliente del banco de no_asignados en la
+posición de menor incremento de costo marginal, considerando todas
+las posiciones en todas las rutas de todos los depósitos abiertos.
+Es una estrategia miope: toma la mejor decisión local sin ver el
+futuro.
+
+regret2_repair usa una estrategia look-ahead. Para cada cliente no
+asignado calcula Delta_1 —el mejor costo de inserción posible— y
+Delta_2 —el segundo mejor—. El arrepentimiento es Delta_2 menos
+Delta_1: cuánto empeoraría ese cliente si no se insertara en su
+mejor posición ahora. Se inserta primero el cliente con mayor
+arrepentimiento, es decir, el que más perdería si se dejara para
+después.
+
+La diferencia clave: greedy es miope, regret-2 tiene visión de
+futuro. Con múltiples clientes no asignados, el orden de inserción
+importa, y regret-2 tiende a evitar órdenes sub-óptimos al
+priorizar a los clientes en posición más crítica.
+
+
+================================================================
+SECCIÓN 4: MA|PM
+================================================================
+
+---- DIAPOSITIVA 11: MA|PM — CROMOSOMA GIANT-TOUR ----
+[~2 min]
+
+El MA|PM —Memetic Algorithm with Population Management— de Prins
+et al. (2006) usa una representación de cromosoma en dos partes.
+
+La primera parte es DS, Depot State, un vector de m enteros indexado
+desde 0. Si DS[i] es mayor que 0, el depósito i está abierto.
+Si DS[i] es 0, el depósito está cerrado.
+
+La segunda parte es CS, Client Sequence, una permutación de todos
+los n clientes con sus identificadores 1-indexados. Es el "tour
+gigante": un recorrido global sin indicar depósitos ni cortes de ruta.
+
+En el ejemplo de la diapositiva: DS = [1, 0, 1] significa que D_1
+y D_3 están abiertos y D_2 está cerrado. CS = [C_3, C_1, C_5, C_2, C_4].
+
+DS solo dice qué depósitos están abiertos.
+CS dice en qué orden están los clientes.
+El Split —que veremos en la siguiente diapositiva— es quien determina
+la partición óptima del CS en rutas y la asignación de cada
+segmento al depósito de menor costo.
+
+Cuando el crossover genera un hijo con DS inválido —por ejemplo
+sin ningún depósito abierto o con exceso de demanda— el método
+repair redistribuye los depósitos para restaurar la factibilidad.
+
+
+---- DIAPOSITIVA 12: MA|PM — ALGORITMO SPLIT ----
+[~2.5 min]
+
+El Split es el núcleo de decodificación. Dado el tour gigante CS
+y los depósitos abiertos, construye un programa dinámico donde
+dp[k] es el costo mínimo de rutear los primeros k clientes del CS.
+
+La base es dp[0] = 0. Para cada par de posiciones (i, j) en el CS
+—donde j >= i— se considera el segmento de clientes CS[i..j] como
+una posible ruta. Si la demanda acumulada de ese segmento supera Q
+se descarta y no se extiende más. Para cada segmento factible se
+prueba cada depósito D abierto, calculando el costo de esa ruta
+desde D: F más el recorrido D → CS[i] → ... → CS[j] → D.
+Si dp[i] más ese costo mejora dp[j+1], se actualiza dp[j+1] y se
+registran prev[j+1] y depot[j+1] para reconstruir la solución.
+
+Al final dp[n] es el costo mínimo de rutear todos los clientes.
+Se retrocede con prev para reconstruir las rutas.
+
+El costo total del cromosoma es la suma de los O(D_i) de los
+depósitos abiertos más dp[n].
+
+La complejidad es O(n² × m): para cada par (i, j) se prueban m
+depósitos. En la práctica es muy rápido porque la capacidad Q
+limita el tamaño de los segmentos.
+
+
+---- DIAPOSITIVA 13: MA|PM — BÚSQUEDA LOCAL LS1 ----
+[~2 min]
+
+LS1 es la búsqueda local que se aplica después de evaluar cada
+cromosoma con Split. Opera sobre las rutas explícitas decodificadas.
+
+El loop externo itera mientras haya mejora. En cada iteración se
+aplican tres vecindades con estrategia first-improvement:
+
+— MOVE: relocalizar un cliente, tanto dentro de la misma ruta
+  como a otra ruta del mismo o distinto depósito.
+— SWAP: intercambiar dos clientes de rutas del mismo o distinto
+  depósito.
+— 2-OPT: inversión de subsecuencia intra-ruta y reconexión cruzada
+  inter-ruta.
+
+Si algún operador encuentra un delta negativo —mejora de costo—
+se aplica, se recalculan los costos, se marca que hubo mejora,
+y se vuelve a empezar desde el primer operador.
+
+La diferencia entre LS1 y LS2:
+LS1 aplica los tres operadores sobre el cromosoma decodificado y
+actualiza el CS al terminar.
+LS2 es más agresiva: aplica 2-opt también entre depósitos distintos,
+lo que es más costoso pero encuentra mejoras más profundas.
+LS2 se usa con menor frecuencia para no dominar el tiempo de cómputo.
+
+
+---- DIAPOSITIVA 14: MA|PM — OX CROSSOVER Y GESTIÓN DE DIVERSIDAD ----
+[~2.5 min]
+
+El operador de cruce es el Order Crossover u OX.
+
+Los pasos son:
+1. Se copia una subsecuencia central CS[a..b] del padre P_1 al hijo H.
+2. Se completa H recorriendo el CS de P_2 en orden, omitiendo los
+   clientes ya presentes en H.
+3. Para el DS del hijo se selecciona aleatoriamente de P_1 o P_2
+   posición a posición.
+4. Si el DS resultante es inválido, se llama a repair(H).
+5. Se evalúa H con Split y luego con LS1.
+
+Antes de insertar el hijo en la población se verifica la distancia
+de Broken Pairs D(T, U), definida como la diferencia simétrica de
+los conjuntos de pares adyacentes en los tours T y U. Cuenta cuántos
+pares de clientes adyacentes en T no lo son en U, y viceversa.
+
+Si la BPD del hijo con respecto a algún individuo existente es menor
+que el umbral Delta, el hijo se rechaza por ser demasiado similar y
+se incrementa NbNoAdd.
+
+Si supera el umbral con todos los existentes, reemplaza al individuo
+de mayor costo en la población.
+
+El ciclo de vida de la población tiene cinco fases:
+inicialización con NN y Clarke-Wright más LS1,
+selección por torneo binario,
+cruce OX con LS1 y BPD check,
+y dos mecanismos de recuperación cuando la búsqueda se estanca:
+bajar el umbral Delta si NbNoAdd supera MaxNbNoAdd, o refrescar
+la población si NbAcc supera MaxNbAcc.
+
+
+================================================================
+SECCIÓN 5: EJEMPLO PASO A PASO
+================================================================
+
+---- DIAPOSITIVA 15: EJEMPLO — INSTANCIA MÍNIMA ----
+[~1.5 min]
+
+Para ilustrar los tres algoritmos usamos una instancia mínima de
+cinco nodos sobre el eje x.
+Hay dos depósitos D_1 en la posición 0 y D_2 en la posición 6,
+y tres clientes C_1 en 1, C_2 en 3 y C_3 en 5.
+Parámetros: capacidad Q = 2 (cada cliente tiene demanda 1),
+costo fijo de vehículo F = 2, y costo de apertura O = 3 por depósito.
+
+La solución óptima se muestra en el diagrama:
+— Ruta azul desde D_1: D_1 → C_1 → D_1, costo 1 + 1 + F = 4.
+— Ruta roja desde D_2: D_2 → C_2 → C_3 → D_2, costo 3 + 2 + 1 + F = 8.
+Costo total óptimo = O_1 + O_2 + 4 + 8 = 18.
+
+La tabla de la derecha adelanta que los tres algoritmos encuentran
+este óptimo: la Fuerza Bruta lo garantiza exactamente, el ALNS lo
+encuentra en la primera iteración, y el MA|PM lo halla mediante
+Split y el cruce OX.
+
+
+---- DIAPOSITIVA 16: EJEMPLO — FUERZA BRUTA PASO A PASO ----
+[~2.5 min]
+
+La Fuerza Bruta enumera los 3 subconjuntos no vacíos de depósitos:
+{D_1}, {D_2}, y {D_1, D_2}.
+
+Caso A — Solo D_1 abierto:
+El Set-Cover DP prueba todas las particiones de {C_1, C_2, C_3} en
+rutas factibles de capacidad 2. El mínimo es la partición {C_1} + {C_2, C_3}
+con costo de ruteo 4 + 12 = 16. Más el costo de apertura O_1 = 3,
+el costo total es 19.
+
+Caso B — Solo D_2 abierto:
+La mejor partición es {C_1, C_2} + {C_3} con costo 12 + 4 = 16.
+Más O_2 = 3, total 19.
+
+Caso C — Ambos depósitos abiertos:
+Se prueban las 6 asignaciones posibles de clientes a depósitos.
+La mejor es D_1:{C_1} y D_2:{C_2, C_3}, con costo O_1 + O_2 + 4 + 8 = 18.
+También D_1:{C_1, C_2} y D_2:{C_3} da 18.
+
+El mínimo de los tres casos es min(19, 19, 18) = 18.
+La Fuerza Bruta garantiza que no existe solución de menor costo.
+Hay dos soluciones óptimas, ambas con los dos depósitos abiertos.
+
+
+---- DIAPOSITIVA 17: EJEMPLO ALNS (1/3) — SOLUCIÓN INICIAL E ITERACIÓN 1 ----
+[~2.5 min]
+
+La heurística All-Open abre todos los depósitos. Luego el greedy
+asigna clientes en algún orden; en este caso coloca C_3 en D_1 por
+ser el primero procesado:
+— D_1: ruta [C_1, C_3], costo 1 + 4 + 5 + 2 = 12.
+— D_2: ruta [C_2], costo 3 + 3 + 2 = 8.
+Costo inicial S_0 = O_1 + O_2 + 12 + 8 = 26.
+
+Iteración 1: se selecciona random_removal con q = 1.
+Se extrae C_3 de la ruta [C_1, C_3] de D_1.
+Estado: D_1:[C_1], D_2:[C_2], no_asig = {C_3}.
+
+greedy_repair calcula el delta de insertar C_3 en cada posición:
+— Tras C_1 en D_1: delta = +8.
+— Tras C_2 en D_2: delta = 0. Esto significa que C_3 ya estaba
+  "de vuelta" en esa dirección y agregarlo no incrementa el recorrido.
+— Nueva ruta en D_2: delta = +4.
+
+Se elige el delta mínimo: tras C_2 en D_2 con delta = 0.
+La solución resultante S_1 tiene:
+— D_1: D_1 → C_1 → D_1 + F = 1 + 1 + 2 = 4.
+— D_2: D_2 → C_2 → C_3 → D_2 + F = 3 + 2 + 1 + 2 = 8.
+Costo S_1 = O_1 + O_2 + 4 + 8 = 18.
+
+Delta E = 18 - 26 = -8, que es negativo, así que SA acepta siempre.
+S_1 pasa a ser la mejor solución S* = S_1.
+Los operadores random_removal y greedy_repair reciben sigma_1 = 33.
+
+En una sola iteración el ALNS pasó de costo 26 a costo 18.
+
+
+---- DIAPOSITIVA 18: EJEMPLO ALNS (2/3) — WORST_REMOVAL Y REGRET2_REPAIR ----
+[~2 min]
+
+Iteración 2: se selecciona worst_removal con q = 1.
+Estado S_1: D_1:[C_1], D_2:[C_2, C_3].
+
+Se calcula el ahorro (costo marginal) de extraer cada cliente:
+— C_1: su ruta D_1-C_1-D_1 cuesta 4. Sin él la ruta desaparece.
+  Ahorro = 4.
+— C_2: la ruta D_2:[C_2, C_3] cuesta 8. Sin C_2 queda D_2-C_3-D_2
+  que cuesta 4. Ahorro = 4.
+— C_3: sin C_3 la ruta queda D_2-C_2-D_2 que también cuesta 8.
+  Ahorro = 0.
+
+Hay empate entre C_1 y C_2 con ahorro = 4; se elige C_1.
+no_asig = {C_1}.
+
+Ahora regret2_repair evalúa las opciones de inserción de C_1:
+— Nueva ruta D_1:[C_1]: delta = 4. Esta es Delta_1, la mejor.
+— Nueva ruta D_2:[C_1]: delta = 12. Esta es Delta_2, la segunda mejor.
+Arrepentimiento = 12 - 4 = 8 (alto).
+
+C_1 vuelve a D_1. S_2 = S_1, costo 18, sin cambio.
+
+Con un solo cliente no asignado greedy y regret-2 coinciden.
+La ventaja de regret-2 es visible con múltiples clientes: ordena
+las inserciones priorizando a los que más perderían si esperan,
+evitando órdenes sub-óptimos que greedy produciría.
+
+
+---- DIAPOSITIVA 19: EJEMPLO ALNS (3/3) — DEPOT_CLOSING Y LIMITACIÓN ----
+[~2.5 min]
+
+Iteración 3: se selecciona depot_closing.
+Se elige cerrar D_1.
+
+Ahorro por cierre:
+  -O_1 - costo(D_1:C_1) = -3 - 4 = -7.
+
+C_1 debe reasignarse. La ruta de D_2 [C_2, C_3] está llena
+(demanda = 2 = Q). Hay que crear una nueva ruta D_2:[C_1]:
+  d(D_2, C_1) + d(C_1, D_2) + F = 5 + 5 + 2 = 12.
+
+Delta E total = -7 + 12 = +5. La solución empeora 5 unidades.
+
+Decisión SA: P = exp(-5 / T_3) ≈ exp(-5/49800) ≈ 0.9999.
+Con temperatura todavía muy alta, SA acepta casi con certeza.
+S_3: solo D_2 abierto, rutas [C_2, C_3] + [C_1], costo = 23.
+
+Aquí aparece la limitación: desde S_3, D_1 está cerrado y no puede
+reabrirse porque los reparadores solo insertan en depositos_abiertos.
+El mínimo alcanzable desde S_3 es 19. La solución óptima de 18
+requiere D_1 abierto.
+
+¿Cómo el ALNS retorna 18 de todas formas?
+Porque guarda siempre la mejor solución S* = 18 encontrada en la
+iteración 1. Conforme la temperatura baja, SA rechaza retrocesos
+costosos. Al finalizar todas las iteraciones, el ALNS retorna S*.
+
+Una mejora futura sería agregar un operador de reapertura de depósitos
+para que los reparadores puedan deshacer el cierre.
+
+
+---- DIAPOSITIVA 20: EJEMPLO MA|PM (1/5) — POBLACIÓN INICIAL Y SPLIT CHR1 ----
+[~3 min]
+
+La población inicial tiene dos cromosomas:
+— Chr1: DS = [1, 0], CS = [C_2, C_3, C_1]. Solo D_1 abierto.
+— Chr2: DS = [0, 1], CS = [C_1, C_2, C_3]. Solo D_2 abierto.
+
+Evaluemos Chr1 con Split.
+DS = [1, 0], solo D_1 disponible. CS = [C_2, C_3, C_1].
+Para cada segmento del CS se calcula el costo de la ruta desde D_1:
+
+Seg [0..0] = {C_2}: F + d(D_1, C_2) + d(C_2, D_1) = 2 + 3 + 3 = 8.
+Seg [0..1] = {C_2, C_3}: 2 + 3 + 2 + 5 = 12. Factible (demanda = 2 = Q).
+Seg [1..1] = {C_3}: 2 + 5 + 5 = 12.
+Seg [1..2] = {C_3, C_1}: 2 + 5 + 4 + 1 = 12. Factible.
+Seg [2..2] = {C_1}: 2 + 1 + 1 = 4.
+
+El DP:
+dp[0] = 0 (base).
+dp[1] = dp[0] + 8 = 8.  (segmento {C_2})
+dp[2] = dp[0] + 12 = 12. (segmento {C_2, C_3}, mejor que dp[1]+12=20)
+dp[3] = dp[2] + 4 = 16.  (segmento {C_1})
+
+Backtracking: dp[3] viene de dp[2] + seg[2..2], y dp[2] viene de
+dp[0] + seg[0..1].
+Rutas Chr1:
+— Seg [0..1] = {C_2, C_3} en D_1, costo 12.
+— Seg [2..2] = {C_1} en D_1, costo 4.
+Fitness Chr1 = O_1 + dp[3] = 3 + 16 = 19.
+
+
+---- DIAPOSITIVA 21: EJEMPLO MA|PM (2/5) — SPLIT CHR2 Y BÚSQUEDA LOCAL ----
+[~2.5 min]
+
+Split Chr2: DS = [0, 1], solo D_2. CS = [C_1, C_2, C_3].
+Costos desde D_2:
+Seg [0..0] = {C_1}: 2 + 5 + 5 = 12.
+Seg [0..1] = {C_1, C_2}: 2 + 5 + 2 + 3 = 12. Factible.
+Seg [1..1] = {C_2}: 2 + 3 + 3 = 8.
+Seg [1..2] = {C_2, C_3}: 2 + 3 + 2 + 1 = 8. Factible.
+Seg [2..2] = {C_3}: 2 + 1 + 1 = 4.
+
+DP:
+dp[0] = 0.
+dp[1] = 12.
+dp[2] = min(dp[1]+12=24, dp[0]+12=12) = 12.
+dp[3] = min(dp[2]+8=20, dp[1]+8=20, dp[2]+4=16) = 16.
+
+Rutas Chr2: D_2:{C_1, C_2} + {C_3}. Fitness = O_2 + 16 = 19.
+
+Búsqueda Local LS1 sobre ambos cromosomas:
+Para Chr1 (todo en D_1): cualquier movimiento de un cliente entre
+las dos rutas genera un costo mayor o igual. Fusionar ambas rutas
+viola la capacidad. Chr1 es localmente óptimo con fitness 19.
+Para Chr2 (todo en D_2): ídem, Chr2 es localmente óptimo con 19.
+
+Estamos atrapados en un mínimo local de 19. Necesitamos el cruce
+OX para combinar el material genético de Chr1 y Chr2 y escapar.
+
+
+---- DIAPOSITIVA 22: EJEMPLO MA|PM (3/5) — OX CROSSOVER Y RESULTADO ----
+[~2.5 min]
+
+Se seleccionan P_1 = Chr1 y P_2 = Chr2.
+Corte en posición [0..0] del CS.
+
+Paso 1: copiar P_1.CS[0..0] = [C_2] al hijo en posición 0.
+Paso 2: recorrer P_2.CS = [C_1, C_2, C_3], omitir {C_2}.
+  Queda [C_1, C_3].
+Paso 3: Hijo.CS = [C_2, C_1, C_3].
+Paso 4: Hijo.DS: DS[0] viene de Chr1 = 1 (D_1 abierto),
+  DS[1] viene de Chr2 = 1 (D_2 abierto).
+  Resultado: DS = [1, 1]. Ambos depósitos abiertos.
+
+Esta es la clave del cruce: ningún padre tenía DS = [1, 1].
+Chr1 tenía [1, 0] y Chr2 tenía [0, 1].
+El cruce combinó ambos estados y creó un hijo que puede usar
+los dos depósitos simultáneamente.
+
+Split del hijo con DS = [1, 1] y CS = [C_2, C_1, C_3]:
+El segmento {C_3} cuesta 4 desde D_2 (1+1+2) vs. 12 desde D_1 (5+5+2).
+El Split asigna {C_3} a D_2 y {C_2, C_1} a D_1.
+
+Rutas del hijo:
+— D_1: D_1 → C_2 → C_1 → D_1 + F = 3 + 2 + 1 + 2 = 8.
+— D_2: D_2 → C_3 → D_2 + F = 1 + 1 + 2 = 4.
+Fitness = O_1 + O_2 + 8 + 4 = 18. Solución óptima.
+
+
+---- DIAPOSITIVA 23: EJEMPLO MA|PM (4/5) — SPLIT DEL HIJO (DP DETALLADO) ----
+[~2 min]
+
+La tabla de arriba compara los tres individuos:
+Chr1: DS [1,0], CS [C_2,C_3,C_1], fitness 19.
+Chr2: DS [0,1], CS [C_1,C_2,C_3], fitness 19.
+Hijo: DS [1,1], CS [C_2,C_1,C_3], fitness 18.
+
+El DP del hijo evalúa ambos depósitos por cada segmento:
+Seg [0..0] = {C_2}: D_1 cuesta 8, D_2 cuesta 8. Empate. dp[1] = 8.
+Seg [0..1] = {C_2, C_1}: D_1 cuesta 8, D_2 cuesta 12. Elige D_1.
+  dp[2] = min(8+8=16 desde [1..1]+D_1, 0+8=8 desde [0..1]+D_1) = 8.
+Seg [2..2] = {C_3}: D_1 cuesta 12, D_2 cuesta 4.
+  dp[3] = min(20, 8+4) = 12.
+
+El bloque resalta la ventaja: Chr1 y Chr2 solo usaban un depósito.
+El hijo evalúa ambos, y el segmento {C_3} queda al lado de D_2
+(distancia 1) en vez del lejano D_1 (distancia 5). Esa diferencia
+de 8 en la distancia, más ahorrar el doble retorno largo, reduce
+el costo total de 19 a 18.
+
+
+---- DIAPOSITIVA 24: EJEMPLO MA|PM (5/5) — BPD Y CONVERGENCIA AL ÓPTIMO ----
+[~2.5 min]
+
+Antes de insertar el hijo en la población se verifica la distancia
+de Broken Pairs BPD con cada individuo existente.
+
+Los pares de clientes adyacentes en rutas de cada individuo:
+— Chr1: {(C_2, C_3)} — el par C_2-C_3 está en la misma ruta.
+— Chr2: {(C_1, C_2)} — el par C_1-C_2 está en la misma ruta.
+— Hijo: {(C_2, C_1)} que es el mismo par que {(C_1, C_2)} (simétrico).
+
+BPD(hijo, Chr1) = |{(C_2,C_3)} △ {(C_1,C_2)}| = 2. Es >= Delta = 1.
+El hijo es suficientemente diferente de Chr1. OK.
+
+BPD(hijo, Chr2) = |{(C_1,C_2)} △ {(C_1,C_2)}| = 0. Es < Delta = 1.
+El hijo es demasiado similar a Chr2.
+Resultado: el hijo con fitness 18 es rechazado. NbNoAdd += 1.
+
+¿Cómo converge el MA|PM de todas formas?
+Cuando NbNoAdd supera MaxNbNoAdd, el umbral Delta baja a 0.
+Con Delta = 0, el hijo se acepta y reemplaza al individuo de mayor
+costo —Chr1 o Chr2, ambos en 19—.
+MA|PM converge al óptimo 18.
+
+Este ejemplo ilustra por qué la gestión de diversidad BPD es
+importante: evita que la población colapse prematuramente, incluso
+a costa de rechazar temporalmente el mejor individuo encontrado.
+
+
+================================================================
+SECCIÓN 6: VALIDACIÓN CONTRA FUERZA BRUTA
+================================================================
+
+---- DIAPOSITIVA 25: VALIDACIÓN — METODOLOGÍA ----
+[~2 min]
+
+Para validar formalmente las metaheurísticas implementamos el
+siguiente protocolo:
+
+Paso 1: construimos instancias propias con n de 10 a 20 clientes
+y m igual a 2 o 3 depósitos, con parámetros controlados para que
+la Fuerza Bruta sea ejecutable.
+
+Paso 2: ejecutamos la Fuerza Bruta exacta sobre cada instancia para
+obtener el óptimo comprobado.
+
+Paso 3: ejecutamos ALNS y MA|PM sobre las mismas instancias.
+
+Paso 4: calculamos el gap relativo al óptimo exacto:
+  gap = (Z_algoritmo - Z_BF) / Z_BF × 100%.
+
+La gráfica de la derecha muestra que el tiempo de la Fuerza Bruta
+crece exponencialmente con n en escala logarítmica:
+— Con n = 10 y m = 2 tarda 0.02 segundos.
+— Con n = 16 y m = 2 tarda 18.78 segundos.
+— Con n = 20 y m = 2 tarda 1733 segundos, es decir, 28.9 minutos.
+— Con m = 3 el crecimiento es todavía más rápido.
+
+El criterio del evaluador exige que la Fuerza Bruta tarde al menos
+30 minutos para demostrar que el problema es computacionalmente
+intraterable y que las metaheurísticas son necesarias.
+La instancia coord20-2-1 tarda 28.9 minutos, rozando ese límite.
+
+
+---- DIAPOSITIVA 26: VALIDACIÓN — RESULTADOS VS. ÓPTIMO EXACTO ----
+[~2.5 min]
+
+La tabla resume los resultados de validación sobre 10 instancias.
+
+Para las instancias con m = 2 depósitos —de n = 10 a n = 20—
+tanto ALNS como MA|PM logran gap = 0% en todas. Ambos encuentran
+el óptimo exacto confirmado por la Fuerza Bruta.
+
+La fila resaltada en amarillo es coord20-2-1: la Fuerza Bruta tarda
+28.9 minutos, mientras ALNS y MA|PM resuelven la misma instancia
+en menos de un segundo con gap 0%.
+
+Para las instancias con m = 3 depósitos aparece una diferencia:
+— En coord12-3-1 y coord14-3-1, ALNS tiene gap +5.86% y +5.82%
+  respectivamente. El MA|PM mantiene gap 0%.
+— En coord15-3-1, ambos tienen gap 0%.
+
+La causa del gap del ALNS en instancias de 3 depósitos es exactamente
+la limitación que vimos en el ejemplo: el operador depot_closing
+cierra un depósito que no debería cerrarse, y los reparadores no
+pueden reabrirlo. En esas dos instancias el SA aceptó ese cierre
+y el algoritmo quedó atrapado.
+
+El MA|PM no tiene este problema porque el Split siempre evalúa la
+combinación de depósitos abiertos que indica el DS. Si el DS tiene
+los depósitos correctos abiertos, el Split encuentra la partición
+óptima. El cruce OX puede generar DS = [1, 1] para ambos depósitos,
+lo que permite explorar la configuración correcta.
+
+Resumen de la validación:
+— MA|PM: gap = 0% en todas las instancias validadas.
+— ALNS: gap <= 5.9%, con la limitación conocida de depot_closing.
+
+
+---- DIAPOSITIVA 27: VALIDADOR DE RESTRICCIONES ----
+[~2 min]
+
+Antes de pasar a los resultados del benchmark, quiero mostrar
+una herramienta que implementamos para verificar formalmente
+la calidad de las soluciones: el validador de restricciones.
+
+La función objetivo Z puede calcularse sobre cualquier estado,
+incluso uno infactible: si hay clientes sin asignar, se suman
+penalizaciones de 100.000 por cliente. El problema es que el
+número en pantalla no distingue entre una solución correcta con
+Z = 11.576 y una solución violatoria con ese mismo número después
+de descontar penalizaciones.
+
+El validador responde la pregunta concreta: ¿esta solución
+satisface todas las restricciones formales del modelo LRP?
+
+Verifica seis grupos que mapeamos directamente a las ecuaciones
+del paper:
+
+R1, ecuaciones 2 y 3: cada cliente aparece exactamente una vez.
+Si algún cliente está en no_asignados o en más de una ruta,
+se reporta como huérfano o duplicado.
+
+R2, ecuación 4: cada cliente está asignado a un único depósito.
+Esto es consecuencia directa de R1 más la estructura del mapa.
+
+R3, ecuación 5: solo se usan depósitos abiertos. No puede haber
+rutas saliendo de un depósito con y_i igual a cero.
+
+R4, ecuación 6: la demanda total servida por cada depósito no
+supera su capacidad W_i.
+
+R5, ecuación 11: cada ruta de vehículo no supera la capacidad Q.
+
+R6, verificación interna: el campo id_deposito dentro del struct
+Ruta coincide con la clave del mapa. Esto valida que el refactor
+de la estructura no dejó inconsistencias.
+
+A la derecha vemos un ejemplo real de la salida en consola para
+una solución factible. Cada restricción aparece con [OK] o [FAIL],
+y al final se desglosa el costo en sus tres componentes: apertura
+de depósitos, costo fijo de rutas y costo de viaje.
+
+Si la solución es infactible, se muestra además la diferencia
+entre el costo real y las penalizaciones, para saber cuánto
+"cuesta" la violación.
+
+El validador devuelve un struct ResultadoValidacion con todos
+los detalles, incluyendo listas de los clientes violadores y
+los depósitos con exceso, para uso programático.
+
+
+================================================================
+SECCIÓN 7: RESULTADOS EN BENCHMARK PRODHON
+================================================================
+
+---- DIAPOSITIVA 27: RESULTADOS EN BENCHMARK PRODHON ----
+[~2.5 min]
+
+Las instancias de Prodhon son el benchmark estándar del LRP con
+hasta 200 clientes. Usamos 25 instancias válidas distribuidas en
+cuatro grupos.
+
+La tabla de la izquierda muestra el gap promedio por grupo:
+— n = 20, 4 instancias: ALNS -31.5%, MA|PM -24.0%.
+— n = 50, 3 instancias: ALNS -42.0%, MA|PM -41.7%.
+— n = 100, 12 instancias: ALNS +8.3%, MA|PM +59.0%.
+— n = 200, 6 instancias: ALNS +29.5%, MA|PM +129.9%.
+
+Un gap negativo significa que nuestro algoritmo encontró una solución
+de menor costo que el Best Known Solution registrado en la literatura.
+Esto puede ocurrir porque los BKS son soluciones reportadas, no
+óptimos garantizados.
+
+La gráfica muestra claramente la bifurcación: para n <= 50 las
+curvas de ALNS y MA|PM se solapan. A partir de n = 100 se separan
+drásticamente.
+
+La tabla de tiempos de la derecha explica por qué:
+— Para n = 100, ALNS tarda ~0.6 segundos y MA|PM ~70 segundos.
+  El ALNS es ~100 veces más rápido con mejor calidad de solución.
+— Para n = 200, ALNS ~7 segundos y MA|PM ~730 segundos.
+  La brecha es de dos órdenes de magnitud en tiempo y de casi 100
+  puntos porcentuales en gap.
+
+La degradación del MA|PM se explica por el costo O(n²) del Split
+en cada evaluación. Con 200 clientes ese overhead se acumula durante
+toda la ejecución, haciendo que el algoritmo sea demasiado lento
+para explorar el espacio de búsqueda efectivamente.
+
+Conclusión comparativa:
+— Para n <= 50: ambos equivalentes en calidad, ALNS 10× más rápido.
+— Para n >= 100: ALNS domina tanto en calidad como en tiempo.
+— El MA|PM es competitivo solo en instancias pequeñas.
+
+
+================================================================
+SECCIÓN 8: CONCLUSIONES
+================================================================
+
+---- DIAPOSITIVA 28: CONCLUSIONES ----
+[~2 min]
+
+En cuanto a lo que implementamos:
+Primero, el solver de Fuerza Bruta con Held-Karp DP y Set-Cover DP,
+exacto para n hasta 20 clientes.
+Segundo, el ALNS con 5 destructores —incluyendo depot_closing que
+toca la decisión de localización— y 2 reparadores, con SA y ruleta
+adaptativa.
+Tercero, el MA|PM completo con cromosoma DS+CS, Split O(n²),
+heurísticas NN y Clarke-Wright, cruce OX y búsqueda local LS1/LS2.
+Todo integrado en una arquitectura modular C++17 con la interfaz
+común IAlgoritmo que hace los tres solvers intercambiables.
+
+La validación rigurosa confirma que:
+— La Fuerza Bruta justifica las metaheurísticas: 28.9 minutos para
+  n = 20 versus menos de un segundo para los algoritmos.
+— MA|PM alcanza gap = 0% en todas las instancias validadas contra
+  la Fuerza Bruta.
+— ALNS tiene gap <= 5.9%, con la limitación conocida de depot_closing
+  en instancias de 3 depósitos.
+
+Los hallazgos en el benchmark de Prodhon muestran que:
+— Para n <= 50 ambos superan el BKS registrado en la literatura.
+— Para n >= 100 el ALNS domina en calidad y tiempo.
+— El MA|PM escala mal: ~100 veces más lento que ALNS en n = 100.
+
+Como trabajo futuro, la línea natural es diseñar un algoritmo propio
+que combine la velocidad y adaptabilidad del ALNS con la robustez
+del MA|PM para la decisión de apertura de depósitos —posiblemente
+mediante un operador de reapertura o una hibridación con un
+cromosoma de depósitos dentro del ALNS.
+
+Muchas gracias. Quedo a disposición para cualquier pregunta.
+
+
+================================================================
+FIN DEL GUION
+================================================================
+Diapositivas totales: 29
+Tiempo estimado: 32–37 minutos
+Secciones:
+  1. Arquitectura del Software        (diap. 3–4)
+  2. Algoritmo de Fuerza Bruta        (diap. 5–7)
+  3. ALNS                             (diap. 8–10)
+  4. MA|PM                            (diap. 11–14)
+  5. Ejemplo Paso a Paso              (diap. 15–24)
+  6. Validación contra Fuerza Bruta   (diap. 25–27)  ← +1 nueva
+  7. Resultados Benchmark Prodhon     (diap. 28)
+  8. Conclusiones                     (diap. 29)
+
+Cambios respecto a la versión anterior:
+  - Diap. 4 (Tipos Principales): Ruta actualizada de vector<int>
+    a struct con id_deposito, clientes, costo, demanda_acumulada.
+  - Diap. 27 (nueva): Validador de Restricciones — validar_solucion(),
+    tabla R1–R6 con ecuaciones y ejemplo de salida en consola.
+================================================================

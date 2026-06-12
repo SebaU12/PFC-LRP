@@ -82,6 +82,15 @@ bool move_operator(RutasExplicitas &re, const Matriz &mat,
   int n = inst.num_clientes;
   double Q = inst.Q;
 
+  // Precalcular carga actual de cada depósito (R4: sum d_j ≤ W_i).
+  // Solo necesario para movimientos inter-depósito (LS1).
+  std::vector<double> carga_dep(m, 0.0);
+  if (!solo_intra) {
+    for (int i = 0; i < m; ++i)
+      for (const auto &r : re.rutas[i])
+        for (int c : r) carga_dep[i] += inst.clientes[c - 1].demanda;
+  }
+
   for (int di = 0; di < m; ++di) {
     if (re.rutas[di].empty()) continue;
     int dep_i = n + di;
@@ -94,6 +103,12 @@ bool move_operator(RutasExplicitas &re, const Matriz &mat,
           if (solo_intra && dj != di) continue;
           if (re.rutas[dj].empty() && dj != di) continue;
           int dep_j = n + dj;
+
+          // R4: al mover cli a otro depósito, verificar que dj tenga capacidad
+          double dem_cli = inst.clientes[cli - 1].demanda;
+          if (dj != di &&
+              carga_dep[dj] + dem_cli > inst.depositos[dj].capacidad + 1e-9)
+            continue;
 
           for (int rj = 0; rj < (int)re.rutas[dj].size(); ++rj) {
             if (di == dj && ri == rj) continue;
@@ -117,7 +132,8 @@ bool move_operator(RutasExplicitas &re, const Matriz &mat,
             }
           }
 
-          if (!solo_intra && dj != di) {
+          if (!solo_intra && dj != di &&
+              carga_dep[dj] + dem_cli <= inst.depositos[dj].capacidad + 1e-9) {
             RutasExplicitas tmp = re;
             tmp.rutas[di][ri].erase(tmp.rutas[di][ri].begin() + pi);
             if (tmp.rutas[di][ri].empty())

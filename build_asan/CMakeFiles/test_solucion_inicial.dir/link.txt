@@ -1,0 +1,1 @@
+/etc/profiles/per-user/sebau12/bin/c++ -fsanitize=address -g -O1 -fsanitize=address -Wl,--dependency-file=CMakeFiles/test_solucion_inicial.dir/link.d CMakeFiles/test_solucion_inicial.dir/tests/test_solucion_inicial.cpp.o -o test_solucion_inicial  liblrp_core.a

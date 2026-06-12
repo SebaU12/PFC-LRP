@@ -11,6 +11,7 @@ CMakeFiles/benchmark.dir/benchmark.cpp.o: /home/sebau12/Desktop/Universidad/9no_
   /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/mapm/mapm.h \
   /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/parser.h \
   /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/solucion_inicial.h \
+  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/validador.h \
   /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/alloca.h \
   /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/asm-generic/bitsperlong.h \
   /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/asm-generic/errno-base.h \
@@ -359,8 +360,6 @@ CMakeFiles/benchmark.dir/benchmark.cpp.o:
 
 /nix/store/l0l2ll1lmylczj1ihqn351af2kyp5x19-glibc-2.42-51/lib/libc_nonshared.a:
 
-/nix/store/l0l2ll1lmylczj1ihqn351af2kyp5x19-glibc-2.42-51/lib/crti.o:
-
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/lib/gcc/x86_64-unknown-linux-gnu/15.2.0/include/stdint.h:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/lib/gcc/x86_64-unknown-linux-gnu/15.2.0/include/stddef.h:
@@ -429,6 +428,8 @@ CMakeFiles/benchmark.dir/benchmark.cpp.o:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/iomanip:
 
+/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/fstream:
+
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/array:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/range_access.h:
@@ -446,8 +447,6 @@ CMakeFiles/benchmark.dir/benchmark.cpp.o:
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/stdint.h:
 
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/pthread.h:
-
-/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/fstream:
 
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/linux/posix_types.h:
 
@@ -633,6 +632,22 @@ liblrp_core.a:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/codecvt.h:
 
+/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/time.h:
+
+/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/thread-shared-types.h:
+
+/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/asm-generic/bitsperlong.h:
+
+/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/endian.h:
+
+/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/erase_if.h:
+
+/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/string_view.tcc:
+
+/nix/store/l0l2ll1lmylczj1ihqn351af2kyp5x19-glibc-2.42-51/lib/crti.o:
+
+/home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/validador.h:
+
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/types/mbstate_t.h:
 
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/sys/single_threaded.h:
@@ -677,8 +692,6 @@ liblrp_core.a:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/uses_allocator_args.h:
 
-/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/backward/binders.h:
-
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/pthread_stack_min-dynamic.h:
 
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/types.h:
@@ -692,6 +705,14 @@ liblrp_core.a:
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/struct_rwlock.h:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/stl_iterator_base_funcs.h:
+
+/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/pstl/glue_algorithm_defs.h:
+
+/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/asm-generic/errno-base.h:
+
+/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/struct_mutex.h:
+
+/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/memoryfwd.h:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/stl_pair.h:
 
@@ -720,14 +741,6 @@ liblrp_core.a:
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/linux/sched/types.h:
 
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/libm-simd-decl-stubs.h:
-
-/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/pstl/glue_algorithm_defs.h:
-
-/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/asm-generic/errno-base.h:
-
-/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/struct_mutex.h:
-
-/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/memoryfwd.h:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/ext/string_conversions.h:
 
@@ -821,17 +834,7 @@ liblrp_core.a:
 
 /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/stdlib-bsearch.h:
 
-/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/time.h:
-
-/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/asm-generic/bitsperlong.h:
-
-/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/endian.h:
-
-/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/erase_if.h:
-
-/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bits/string_view.tcc:
-
-/nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/bits/thread-shared-types.h:
+/nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/backward/binders.h:
 
 /nix/store/sca0pf46jmxva40qahkcwys5c1lvk6n2-gcc-15.2.0/include/c++/15.2.0/bit:
 

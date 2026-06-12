@@ -1,0 +1,45 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}El Problema LRP en pocas palabras}{3}{section.1}%
+\contentsline {section}{\numberline {2}Algoritmo de Fuerza Bruta (Solución Exacta)}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}¿Qué es y para qué sirve?}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Estructura del algoritmo}{4}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Held-Karp: cómo funciona}{4}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Set-Cover DP: cómo funciona}{5}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Pseudocódigo completo de la Fuerza Bruta}{6}{subsection.2.5}%
+\contentsline {section}{\numberline {3}ALNS: Adaptive Large Neighborhood Search}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Idea central y motivación}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Representación de la solución}{11}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Operadores de Destrucción}{12}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}1. Random Removal (Destrucción Aleatoria)}{12}{subsubsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.2}2. Worst Removal (Destrucción de los Peores)}{12}{subsubsection.3.3.2}%
+\contentsline {subsubsection}{\numberline {3.3.3}3. Shaw Removal (Destrucción por Similitud Geográfica)}{13}{subsubsection.3.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.4}4. Route Removal (Destrucción de Ruta Completa)}{13}{subsubsection.3.3.4}%
+\contentsline {subsubsection}{\numberline {3.3.5}5. Depot Closing (Cierre de Depósito)}{14}{subsubsection.3.3.5}%
+\contentsline {subsection}{\numberline {3.4}Operadores de Reparación}{14}{subsection.3.4}%
+\contentsline {subsubsection}{\numberline {3.4.1}1. Greedy Insertion (Inserción Codiciosa)}{14}{subsubsection.3.4.1}%
+\contentsline {subsubsection}{\numberline {3.4.2}2. Regret-2 Insertion (Inserción con Arrepentimiento)}{15}{subsubsection.3.4.2}%
+\contentsline {subsection}{\numberline {3.5}Ruleta Adaptativa (el mecanismo de aprendizaje)}{16}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Simulated Annealing (criterio de aceptación)}{17}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.7}Pseudocódigo ALNS con explicación línea por línea}{18}{subsection.3.7}%
+\contentsline {section}{\numberline {4}MA$|$PM: Algoritmo Memético con Gestión de Población}{19}{section.4}%
+\contentsline {subsection}{\numberline {4.1}¿Qué significan MA y PM?}{19}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}El Cromosoma: Giant Tour + Estado de Depósitos}{20}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}El Algoritmo Split: corazón del MA$|$PM}{20}{subsection.4.3}%
+\contentsline {subsubsection}{\numberline {4.3.1}Intuición}{20}{subsubsection.4.3.1}%
+\contentsline {subsubsection}{\numberline {4.3.2}Construcción del grafo auxiliar $G'$}{21}{subsubsection.4.3.2}%
+\contentsline {subsubsection}{\numberline {4.3.3}Shortest Path = partición óptima}{21}{subsubsection.4.3.3}%
+\contentsline {subsection}{\numberline {4.4}Pseudocódigo del Split}{22}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Inicialización de la Población}{23}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Operador de Cruce OX (Order Crossover)}{23}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}Búsqueda Local (Fase de Educación)}{23}{subsection.4.7}%
+\contentsline {subsubsection}{\numberline {4.7.1}LS1 --- Relocate (entre rutas y depósitos)}{24}{subsubsection.4.7.1}%
+\contentsline {subsubsection}{\numberline {4.7.2}LS2 --- Swap (intercambio entre rutas)}{24}{subsubsection.4.7.2}%
+\contentsline {subsubsection}{\numberline {4.7.3}2-opt (eliminación de cruces)}{24}{subsubsection.4.7.3}%
+\contentsline {subsection}{\numberline {4.8}Distancia BPD y Gestión de Población (el PM)}{25}{subsection.4.8}%
+\contentsline {subsection}{\numberline {4.9}Pseudocódigo MA$|$PM con explicación línea por línea}{26}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}Parámetros por defecto y cómo se calculan}{28}{subsection.4.10}%
+\contentsline {section}{\numberline {5}Comparación entre los tres algoritmos}{28}{section.5}%
+\contentsline {section}{\numberline {6}Resultados de Validación}{28}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Gap respecto a BKS (instancias Prodhon)}{29}{subsection.6.1}%
+\contentsline {section}{\numberline {7}Preguntas frecuentes del jurado (con respuestas)}{29}{section.7}%
+\contentsline {section}{\numberline {8}Ejemplo paso a paso: los tres algoritmos sobre la misma instancia}{30}{section.8}%

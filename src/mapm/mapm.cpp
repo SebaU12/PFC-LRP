@@ -77,6 +77,7 @@ ResultadoAlgoritmo AlgoritmMAPM::ejecutar(const EstadoLRP &sol_inicial) {
                              const InstanciaLRP &inst_) {
     auto sr = evaluar_cromosoma(c, mat_, inst_);
     LS1(c, sr, mat_, inst_);
+    evaluar_cromosoma(c, mat_, inst_); // restaurar penalización de depósito post-LS
   };
 
   // Contadores del loop
@@ -141,6 +142,10 @@ ResultadoAlgoritmo AlgoritmMAPM::ejecutar(const EstadoLRP &sol_inicial) {
         else if (r < cfg.p1 + (1.0 - cfg.p1) * cfg.p2)
           LS2(C, sr, mat, inst);                          // búsqueda rápida (35%)
         // sin búsqueda local (15%): el hijo entra sin mejorar
+
+        // Re-evaluar siempre: actualizar_cromosoma_desde_rutas fija fitness sin
+        // penalización de depósito; evaluar_cromosoma la incluye correctamente.
+        evaluar_cromosoma(C, mat, inst);
       }
 
       // Paso 3: actualizar mejor global si el hijo es mejor

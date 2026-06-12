@@ -1,0 +1,1818 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,calc}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\renewcommand{\algorithmicrequire}{\textbf{Entrada:}}
+\renewcommand{\algorithmicensure}{\textbf{Salida:}}
+
+% Entornos de color
+\tcbuselibrary{breakable,skins}
+
+\newtcolorbox{ejemplo}[1][]{
+  colback=blue!5!white,
+  colframe=blue!60!black,
+  fonttitle=\bfseries,
+  title={Ejemplo},
+  breakable,
+  #1
+}
+
+\newtcolorbox{definicion}[1][]{
+  colback=green!5!white,
+  colframe=green!60!black,
+  fonttitle=\bfseries,
+  title={Definición},
+  breakable,
+  #1
+}
+
+\newtcolorbox{nota}[1][]{
+  colback=orange!5!white,
+  colframe=orange!70!black,
+  fonttitle=\bfseries,
+  title={Nota Clave},
+  breakable,
+  #1
+}
+
+\newtcolorbox{pregunta}[1][]{
+  colback=red!5!white,
+  colframe=red!60!black,
+  fonttitle=\bfseries,
+  title={Pregunta frecuente del jurado},
+  breakable,
+  #1
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Manual de Metaheurísticas LRP}
+\lhead{\leftmark}
+\cfoot{\thepage}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    urlcolor=blue!60!black,
+    citecolor=green!60!black
+}
+
+\setlength{\parskip}{6pt}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries Manual de Estudio Profundo\\[0.4em]
+Metaheurísticas para el LRP\par}
+\vspace{1cm}
+{\Large Algoritmos: Fuerza Bruta, ALNS y MA$|$PM\par}
+\vspace{0.5cm}
+{\large Con pseudocódigos, ejemplos paso a paso\\y guía de defensa ante el jurado\par}
+\vspace{2cm}
+{\large Sebastián Lizárraga Calderón\\Johannes Loayza Huamán\par}
+\vfill
+{\large Proyecto Final de Carrera --- 9no Ciclo\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{El Problema LRP en pocas palabras}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\begin{definicion}
+El \textbf{Location-Routing Problem (LRP)} responde simultáneamente tres preguntas:
+\begin{enumerate}
+\item \textbf{¿Qué depósitos abrir?} (decisión estratégica de localización)
+\item \textbf{¿A qué depósito asignar cada cliente?} (decisión táctica de asignación)
+\item \textbf{¿En qué orden visitar los clientes de cada depósito?} (decisión operativa de ruteo)
+\end{enumerate}
+El objetivo es \textbf{minimizar el costo total}: apertura de depósitos + activación de vehículos + distancias recorridas.
+\end{definicion}
+
+\begin{ejemplo}
+Supongamos la siguiente instancia pequeña con 6 clientes y 2 depósitos:
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+Nodo & Tipo & $x$ & $y$ & Info adicional \\
+\midrule
+D1 & Depósito & 10 & 10 & Cap=150, Apertura=500 \\
+D2 & Depósito & 40 & 40 & Cap=150, Apertura=500 \\
+C1 & Cliente  &  8 & 20 & Demanda=18 \\
+C2 & Cliente  & 15 &  8 & Demanda=15 \\
+C3 & Cliente  &  5 & 15 & Demanda=22 \\
+C4 & Cliente  & 35 & 45 & Demanda=16 \\
+C5 & Cliente  & 45 & 38 & Demanda=14 \\
+C6 & Cliente  & 42 & 48 & Demanda=20 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Capacidad del vehículo $Q = 60$. Costo fijo de vehículo $F = 100$.
+
+Una solución posible: abrir D1 y D2. Asignar C1,C2,C3 a D1 y C4,C5,C6 a D2. Con $Q=60$:
+\begin{itemize}
+\item D1 $\to$ Ruta A: [C1, C2] (demanda: 33), Ruta B: [C3] (demanda: 22)
+\item D2 $\to$ Ruta C: [C4, C5] (demanda: 30), Ruta D: [C6] (demanda: 20)
+\end{itemize}
+Costo total = 1000 (apertura) + 400 (4 vehículos) + distancias.
+\end{ejemplo}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Algoritmo de Fuerza Bruta (Solución Exacta)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{¿Qué es y para qué sirve?}
+
+El algoritmo de \textbf{fuerza bruta} encuentra la solución \emph{óptima garantizada} enumerando todas las configuraciones posibles del problema y eligiendo la de menor costo. Se usa como \textbf{referencia de validación}: si ALNS y MA$|$PM coinciden con la fuerza bruta en instancias pequeñas, tenemos confianza de que los metaheurísticos funcionan correctamente.
+
+\begin{nota}
+La fuerza bruta es \textbf{exacta pero lenta}. Para $n$ clientes y $m$ depósitos, el espacio de búsqueda crece como $O(2^m \cdot k^n \cdot 3^{n/k})$. Para $n=12, m=2$ tarda ~0.2 segundos. Para $n=20$ tardaría décadas. Por eso solo se usa en instancias pequeñas ($n \leq 12$, $m \leq 3$).
+\end{nota}
+
+\subsection{Estructura del algoritmo}
+
+El algoritmo tiene tres niveles de enumeración:
+
+\textbf{Nivel 1 --- Subconjuntos de depósitos:} Para $m$ depósitos, hay $2^m - 1$ subconjuntos no vacíos. Para $m=2$: $\{D1\}$, $\{D2\}$, $\{D1, D2\}$.
+
+\textbf{Nivel 2 --- Asignación de clientes:} Si hay $k$ depósitos abiertos, cada uno de los $n$ clientes se puede asignar a cualquiera de los $k$ depósitos. Total: $k^n$ combinaciones.
+
+\textbf{Nivel 3 --- Ruteo óptimo (CVRP exacto):} Para cada conjunto de clientes asignado a un depósito, se resuelve el problema de ruteo con capacidad (CVRP) de forma exacta usando dos técnicas encadenadas:
+\begin{itemize}
+\item \textbf{Held-Karp DP:} Calcula el costo mínimo de visitar cualquier subconjunto de clientes en el mejor orden posible. Complejidad: $O(2^k \cdot k^2)$.
+\item \textbf{Set-Cover DP:} Divide óptimamente los clientes en rutas que no violen la capacidad $Q$. Complejidad: $O(3^k)$.
+\end{itemize}
+
+\subsection{Held-Karp: cómo funciona}
+
+\begin{definicion}
+\textbf{Held-Karp DP:} Define $hk[\text{mask}][\text{last}]$ = mínimo costo de partir del depósito, visitar exactamente los clientes indicados por el bitmask \texttt{mask}, y terminar en el cliente \texttt{last}.
+
+Recurrencia:
+$$hk[S][i] = \min_{j \in S \setminus \{i\}} \left( hk[S \setminus \{i\}][j] + dist(c_j, c_i) \right)$$
+Costo de ruta completa (ida y vuelta al depósito):
+$$route\_cost[S] = F + \min_{i \in S} \left( hk[S][i] + dist(c_i, D) \right)$$
+\end{definicion}
+
+\begin{ejemplo}
+Tenemos el depósito $D$ en (10,10) y 3 clientes: $c_1=(8,20)$, $c_2=(15,8)$, $c_3=(5,15)$. $Q=60$, $F=100$. Todos caben en una sola ruta (demanda total $=55 \leq 60$).
+
+Calculamos distancias (en modo entero $\times 100$):
+$dist(D,c_1) = \lfloor\sqrt{4+100}\cdot 100\rfloor = 1019$,
+$dist(D,c_2) = \lfloor\sqrt{25+4}\cdot 100\rfloor = 538$,
+$dist(D,c_3) = \lfloor\sqrt{25+25}\cdot 100\rfloor = 707$.
+
+$dist(c_1,c_2) = \lfloor\sqrt{49+144}\cdot 100\rfloor = 1389$,
+$dist(c_1,c_3) = \lfloor\sqrt{9+25}\cdot 100\rfloor = 583$,
+$dist(c_2,c_3) = \lfloor\sqrt{100+49}\cdot 100\rfloor = 1220$.
+
+Held-Karp base (mask con un solo bit):
+\begin{align*}
+hk[\{c_1\}][c_1] &= dist(D, c_1) = 1019 \\
+hk[\{c_2\}][c_2] &= dist(D, c_2) = 538 \\
+hk[\{c_3\}][c_3] &= dist(D, c_3) = 707
+\end{align*}
+
+Dos clientes:
+\begin{align*}
+hk[\{c_1,c_2\}][c_2] &= hk[\{c_1\}][c_1] + dist(c_1,c_2) = 1019+1389 = 2408 \\
+hk[\{c_1,c_2\}][c_1] &= hk[\{c_2\}][c_2] + dist(c_2,c_1) = 538+1389 = 1927 \\
+hk[\{c_1,c_3\}][c_3] &= hk[\{c_1\}][c_1] + dist(c_1,c_3) = 1019+583 = 1602 \\
+hk[\{c_1,c_3\}][c_1] &= hk[\{c_3\}][c_3] + dist(c_3,c_1) = 707+583 = 1290 \\
+hk[\{c_2,c_3\}][c_3] &= hk[\{c_2\}][c_2] + dist(c_2,c_3) = 538+1220 = 1758 \\
+hk[\{c_2,c_3\}][c_2] &= hk[\{c_3\}][c_3] + dist(c_3,c_2) = 707+1220 = 1927
+\end{align*}
+
+Tres clientes ($S = \{c_1,c_2,c_3\}$):
+\begin{align*}
+hk[S][c_3] &= \min(hk[\{c_1,c_2\}][c_1]+dist(c_1,c_3),\ hk[\{c_1,c_2\}][c_2]+dist(c_2,c_3)) \\
+           &= \min(1927+583,\ 2408+1220) = \min(2510, 3628) = 2510 \quad (\text{llegamos desde }c_1)
+\end{align*}
+
+Costo de ruta completa (con retorno al depósito):
+$$route\_cost[\{c_1,c_2,c_3\}] = F + hk[S][c_3] + dist(c_3, D) = 100 + 2510 + 707 = 3317$$
+
+La ruta óptima es: $D \to c_2 \to c_1 \to c_3 \to D$ con costo 3317.
+\end{ejemplo}
+
+\subsection{Set-Cover DP: cómo funciona}
+
+\begin{definicion}
+\textbf{Set-Cover DP:} Una vez que tenemos el $route\_cost[S]$ para cada subconjunto $S$ de clientes, buscamos la forma de cubrir \textbf{todos} los clientes con el menor costo total:
+
+$$dp[\emptyset] = 0$$
+$$dp[M] = \min_{R \subseteq M,\ R \neq \emptyset,\ route\_cost[R] < \infty} \left( dp[M \setminus R] + route\_cost[R] \right)$$
+
+La respuesta es $dp[\{c_1, c_2, \ldots, c_k\}]$.
+\end{definicion}
+
+\begin{ejemplo}
+Con los mismos 3 clientes y $Q=60$ (todos caben en una ruta), el Set-Cover DP tiene la respuesta trivial: una sola ruta con los 3 clientes, costo 3317.
+
+Ahora si $Q=35$ (máximo 2 clientes por ruta por capacidad), las rutas factibles son:
+\begin{align*}
+route\_cost[\{c_1\}] &= 100 + dist(D,c_1) + dist(c_1,D) = 100+1019+1019 = 2138 \\
+route\_cost[\{c_2\}] &= 100 + 538 + 538 = 1176 \\
+route\_cost[\{c_3\}] &= 100 + 707 + 707 = 1514 \\
+route\_cost[\{c_1,c_2\}] &= 100 + \min(1927,2408) + dist(\text{last}, D) = \ldots
+\end{align*}
+
+Para $\{c_1,c_2\}$: la mejor llegada es $c_1$ (desde $c_2$), entonces costo $= 100+1927+dist(c_1,D)=100+1927+1019=3046$.
+
+El DP decide: ¿conviene $\{c_1,c_2\}$ + $\{c_3\}$ o $\{c_1\}$ + $\{c_2,c_3\}$ o las tres individuales?
+\begin{align*}
+dp[\{c_1,c_2,c_3\}] &= \min\begin{cases}
+route\_cost[\{c_1,c_2\}] + dp[\{c_3\}] = 3046 + 1514 = 4560 \\
+route\_cost[\{c_1,c_3\}] + dp[\{c_2\}] = \ldots + 1176 \\
+route\_cost[\{c_2,c_3\}] + dp[\{c_1\}] = \ldots + 2138
+\end{cases}
+\end{align*}
+
+El DP encuentra automáticamente la partición óptima.
+\end{ejemplo}
+
+\subsection{Pseudocódigo completo de la Fuerza Bruta}
+
+\begin{algorithm}[H]
+\caption{Fuerza Bruta Exacta para LRP}
+\label{alg:fb}
+\begin{algorithmic}[1]
+\Require Instancia LRP: clientes $C$, depósitos $D$, capacidades $Q, W_i$, costos $O_i, F, c_{ij}$
+\Ensure Solución óptima $S^*$ con costo mínimo $Z^*$
+\State $Z^* \gets +\infty$, $S^* \gets \emptyset$
+\For{\textbf{cada} subconjunto no vacío $\mathcal{D}$ de depósitos $D$}   \Comment{Línea 2: $2^{|D|}-1$ iteraciones}
+    \State $costo\_apertura \gets \sum_{d \in \mathcal{D}} O_d$
+    \For{\textbf{cada} asignación $A: C \to \mathcal{D}$}                 \Comment{Línea 4: $|\mathcal{D}|^{|C|}$ iteraciones}
+        \If{$\exists\, d \in \mathcal{D}: \sum_{j: A(j)=d} dem_j > W_d$}  \Comment{Línea 5: violar cap. depósito}
+            \State \textbf{continuar}                                      \Comment{Poda por infactibilidad}
+        \EndIf
+        \State $costo\_rutas \gets 0$
+        \For{\textbf{cada} depósito $d \in \mathcal{D}$}
+            \State $clientes\_d \gets \{j \in C : A(j) = d\}$
+            \State $costo\_d, rutas\_d \gets$ \Call{CVRP-Exacto}{$clientes\_d, d, Q, F$}
+            \State $costo\_rutas \gets costo\_rutas + costo\_d$
+        \EndFor
+        \State $Z \gets costo\_apertura + costo\_rutas$
+        \If{$Z < Z^*$}
+            \State $Z^* \gets Z$, $S^* \gets$ construir\_solucion($\mathcal{D}, A, rutas$)
+        \EndIf
+    \EndFor
+\EndFor
+\State \Return $S^*, Z^*$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{CVRP-Exacto (Held-Karp + Set-Cover DP)}
+\label{alg:cvrp}
+\begin{algorithmic}[1]
+\Require Clientes $K = \{c_0, \ldots, c_{k-1}\}$, depósito $d$, capacidades $Q$, costo fijo $F$
+\Ensure Costo mínimo y rutas para servir a todos los clientes en $K$
+\State Calcular $sdmnd[\text{mask}]$ para todo subconjunto (demanda acumulada)     \Comment{$2^k$ valores}
+\State Inicializar $hk[\text{mask}][\text{last}] \gets +\infty$ para todo mask, last \Comment{Tabla Held-Karp}
+\For{$i \gets 0$ \textbf{to} $k-1$}
+    \State $hk[\{i\}][i] \gets dist(d, c_i)$                                     \Comment{Caso base: 1 cliente}
+\EndFor
+\For{$S \gets 1$ \textbf{to} $2^k - 1$}                                          \Comment{Por bitmask creciente}
+    \If{$sdmnd[S] > Q$} \textbf{continuar} \EndIf                                \Comment{Poda por capacidad}
+    \For{$i \in S$}                                                               \Comment{Último cliente}
+        \For{$j \in S \setminus \{i\}$}                                          \Comment{Penúltimo cliente}
+            \State $c \gets hk[S \setminus \{i\}][j] + dist(c_j, c_i)$
+            \If{$c < hk[S][i]$} $hk[S][i] \gets c$, guardar predecesor \EndIf
+        \EndFor
+    \EndFor
+\EndFor
+\For{$\text{mask} = 1$ \textbf{to} $2^k - 1$}                                   \Comment{Costo de ruta completa}
+    \State $route\_cost[\text{mask}] \gets F + \min_{i \in \text{mask}}(hk[\text{mask}][i] + dist(c_i, d))$
+\EndFor
+\State $dp[0] \gets 0$, $dp[\text{mask}] \gets +\infty$ para todo mask $\neq 0$  \Comment{Set-Cover DP}
+\For{$\text{mask} \gets 0$ \textbf{to} $2^k - 1$}
+    \For{\textbf{cada} subconjunto $R$ de los clientes no cubiertos por mask}
+        \If{$route\_cost[R] < +\infty$}
+            \State $dp[\text{mask} \cup R] \gets \min(dp[\text{mask} \cup R],\ dp[\text{mask}] + route\_cost[R])$
+        \EndIf
+    \EndFor
+\EndFor
+\State \Return $dp[2^k - 1]$, reconstruir rutas desde punteros
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Glosario de variables del Algoritmo \ref{alg:cvrp}:}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}lp{10cm}}
+\toprule
+\normalfont\textbf{Variable} & \textbf{Significado} \\
+\midrule
+k & Número de clientes asignados a \emph{este} depósito en la asignación actual. Es el tamaño local del subproblema CVRP; varía entre llamadas. \\
+\addlinespace
+mask / S & Bitmask (entero) que representa un subconjunto de los $k$ clientes. El bit $i$ vale 1 si el cliente $i$ pertenece al subconjunto. Por ejemplo, con $k=3$: \texttt{mask=101} $\equiv \{c_0, c_2\}$. Los valores van de \texttt{0} ($\emptyset$) a \texttt{$2^k-1$} (todos los clientes). \\
+\addlinespace
+last / i & Índice (0-based) del \emph{último cliente visitado} en la ruta parcial descrita por \texttt{mask}. \texttt{hk[mask][last]} guarda el costo mínimo de partir del depósito, visitar todos los clientes de \texttt{mask}, y terminar en el cliente \texttt{last}. \\
+\addlinespace
+j & Índice del \emph{penúltimo cliente} visitado, es decir, el predecesor de \texttt{last} en la ruta. Se usa en la recurrencia para extender caminos: $hk[S][i] = hk[S\setminus\{i\}][j] + dist(c_j, c_i)$. \\
+\addlinespace
+sdmnd[mask] & ``Subset demand''. Demanda total acumulada de todos los clientes cuyo bit está activo en \texttt{mask}. Precomputado para $2^k$ valores. Permite verificar $sdmnd[\text{mask}] \leq Q$ en $O(1)$. \\
+\addlinespace
+hk[mask][last] & Tabla principal de Held-Karp. Almacena el costo mínimo del camino: $\text{depósito} \to \text{todos los clientes en mask} \to c_{\text{last}}$. Tamaño: $2^k \times k$. \\
+\addlinespace
+hk\_prev[mask][last] & Tabla de punteros de reconstrucción de Held-Karp. Guarda el índice $j$ del penúltimo cliente que llevó al valor óptimo de \texttt{hk[mask][last]}. Se usa al final para trazar el orden exacto de visita. \\
+\addlinespace
+route\_cost[mask] & Costo total de enviar un vehículo desde el depósito a visitar \emph{exactamente} los clientes en \texttt{mask} y regresar. Incluye el costo fijo $F$ del vehículo. Calculado como $F + \min_i(hk[\text{mask}][i] + dist(c_i, D))$. \\
+\addlinespace
+route\_last[mask] & Índice del último cliente de la ruta óptima para \texttt{mask}. Guarda el $i$ que minimizó \texttt{route\_cost[mask]}; necesario para reconstruir el orden de visita. \\
+\addlinespace
+dp[mask] & Tabla del Set-Cover DP. Costo mínimo de servir a \emph{todos} los clientes cuyo bit está activo en \texttt{mask}, usando cualquier número de vehículos. \texttt{dp[$2^k-1$]} es la respuesta final. \\
+\addlinespace
+dp\_prev[mask] & Puntero de reconstrucción del Set-Cover. Guarda el estado \texttt{mask} anterior (antes de añadir la última ruta) que llevó al valor óptimo de \texttt{dp[mask]}. \\
+\addlinespace
+dp\_route[mask] & Puntero de reconstrucción del Set-Cover. Guarda qué subconjunto $R$ (ruta) se añadió para llegar al estado \texttt{mask} óptimamente. Junto con \texttt{dp\_prev}, permite reconstruir todas las rutas. \\
+\addlinespace
+remaining & Complemento de \texttt{mask} respecto al conjunto completo: los clientes que aún no han sido cubiertos. Se usa para iterar solo sobre subconjuntos de clientes pendientes, evitando considerar rutas que ya fueron asignadas. \\
+\addlinespace
+R (route) & Subconjunto de \texttt{remaining} que forma una sola ruta nueva. En el Set-Cover DP, se prueba añadir cada posible $R \subseteq \text{remaining}$ con \texttt{route\_cost[$R$] $< \infty$}. \\
+\addlinespace
+F & Costo fijo de activar un vehículo (independiente de la distancia recorrida). Aparece en \texttt{route\_cost[mask]}. En el archivo \texttt{.dat} es el último parámetro numérico antes de \texttt{es\_entero}. \\
+\addlinespace
+Q & Capacidad máxima del vehículo. Ninguna ruta puede tener $sdmnd[\text{mask}] > Q$. Es el mismo $Q$ global de la instancia. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Explicación línea por línea del Algoritmo \ref{alg:cvrp} (CVRP-Exacto):}
+
+\begin{itemize}[leftmargin=2cm]
+\item[\textbf{L.1}] \textbf{Demanda acumulada por subconjunto.} Se precomputan $2^k$ valores $sdmnd[\text{mask}]$, uno por cada posible subconjunto de clientes. Se construyen en orden ascendente de máscara usando el bit menos significativo:
+$$sdmnd[\text{mask}] = sdmnd[\text{mask} \setminus \{lsb\}] + dem_{lsb}$$
+Esto permite verificar en $O(1)$ si un subconjunto viola la capacidad $Q$, evitando recalcular sumas durante el DP. Sin esta precomputación, cada verificación de capacidad costaría $O(k)$.
+
+\item[\textbf{L.2}] \textbf{Inicialización de la tabla Held-Karp.} La tabla $hk[\text{mask}][\text{last}]$ tiene $2^k \times k$ entradas. Se inicializa todo a $+\infty$ para indicar ``aún no alcanzable''. Dimensionar la tabla como arreglo plano 1D ($hk[\text{mask} \times k + \text{last}]$) evita miles de asignaciones de memoria dinámica.
+
+\item[\textbf{L.3--4}] \textbf{Casos base.} Para cada cliente $i$ individual: el costo de partir del depósito e ir directamente a $i$ es $dist(D, c_i)$. Solo se inicializa si $dem_i \leq Q$ (un solo cliente ya podría violar la capacidad del vehículo en problemas con demandas altas).
+
+\item[\textbf{L.5--9}] \textbf{Recurrencia principal de Held-Karp.} Se itera sobre todos los subconjuntos $S$ en orden creciente de bitmask (garantiza que $S \setminus \{i\}$ ya fue calculado antes de $S$). Para cada cliente $i \in S$ como último visitado, se busca el mejor penúltimo $j \in S \setminus \{i\}$:
+$$hk[S][i] = \min_{j \in S \setminus \{i\}} \bigl( hk[S \setminus \{i\}][j] + dist(c_j, c_i) \bigr)$$
+La poda \texttt{if sdmnd[S] > Q: continuar} evita calcular rutas infactibles y es la clave del rendimiento: con $Q$ ajustado, la mayoría de subconjuntos se descartan sin entrar al bucle interno.
+
+\item[\textbf{L.10--12}] \textbf{Costo de ruta completa (ida y vuelta).} Para cada subconjunto factible $S$, se calcula el costo mínimo de la ruta que parte del depósito, visita todos los clientes de $S$ en el mejor orden posible, y regresa al depósito. Incluye el costo fijo $F$ del vehículo:
+$$route\_cost[S] = F + \min_{i \in S} \bigl( hk[S][i] + dist(c_i, D) \bigr)$$
+Este paso ``cierra'' el ciclo que Held-Karp dejó abierto. Después de este punto, $route\_cost[S]$ es el costo exacto y óptimo de enviar un vehículo a visitar exactamente los clientes en $S$.
+
+\item[\textbf{L.13}] \textbf{Inicialización del Set-Cover DP.} $dp[\emptyset] = 0$ (sin clientes, costo cero). $dp[\text{mask}] = +\infty$ para todo mask $\neq 0$ indica ``todavía no sabemos cómo cubrir este conjunto de clientes de forma óptima''.
+
+\item[\textbf{L.14--19}] \textbf{Recurrencia del Set-Cover DP.} Para cada estado $\text{mask}$ ya resuelto, se considera añadir una nueva ruta $R$ que cubra algunos de los clientes \emph{aún no cubiertos}:
+$$dp[\text{mask} \cup R] = \min\bigl( dp[\text{mask} \cup R],\ dp[\text{mask}] + route\_cost[R] \bigr)$$
+El truco de iterar subconjuntos con \texttt{for route = remaining; route > 0; route = (route-1) \& remaining} genera exactamente los $2^{|\text{remaining}|}$ subconjuntos no vacíos de los clientes pendientes, sin repeticiones. La complejidad total de este paso es $O(3^k)$ porque cada cliente puede estar en tres estados respecto a cada par (mask, route): (a) ya en mask, (b) en mask y en route, o (c) ni en mask. La condición \texttt{route\_cost[R] < INF} descarta rutas infactibles (demanda $> Q$).
+
+\item[\textbf{L.20--21}] \textbf{Resultado y reconstrucción.} $dp[2^k - 1]$ es el costo mínimo de cubrir \emph{todos} los $k$ clientes del depósito con cualquier número de vehículos. Si sigue siendo $+\infty$, no existe solución factible (la instancia es infactible para este depósito con este $Q$). La reconstrucción sigue los punteros $dp\_prev$ y $dp\_route$ guardados durante el DP para recuperar exactamente qué clientes van en cada ruta y en qué orden.
+\end{itemize}
+
+\begin{nota}
+\textbf{¿Por qué dos DPs encadenados y no uno solo?} Held-Karp resuelve la pregunta ``dado este conjunto fijo de clientes en una ruta, ¿cuál es el mejor orden?'' en $O(2^k \cdot k^2)$. Set-Cover resuelve ``¿cómo partir todos los clientes en grupos?'' en $O(3^k)$. Si intentáramos combinarlos en un solo DP, la tabla necesitaría rastrear simultáneamente el orden dentro de cada ruta \emph{y} la partición entre rutas, lo que llevaría a una explosión combinatoria mucho mayor. Separar los dos problemas es lo que hace factible el algoritmo.
+\end{nota}
+
+\textbf{Explicación línea por línea del Algoritmo \ref{alg:fb}:}
+\begin{itemize}
+\item \textbf{Línea 1:} Inicializa el mejor costo en infinito (aún no hemos visto nada).
+\item \textbf{Línea 2:} Para $m=2$ depósitos hay $2^2-1=3$ subconjuntos: $\{D1\}, \{D2\}, \{D1,D2\}$.
+\item \textbf{Línea 3:} Suma los costos de apertura del subconjunto actual.
+\item \textbf{Línea 4:} Para $k=2$ depósitos abiertos y $n=10$ clientes: $2^{10}=1024$ asignaciones posibles.
+\item \textbf{Línea 5-7:} Poda temprana: si la demanda total asignada a algún depósito supera su capacidad $W_d$, esa asignación es infactible. Se descarta sin calcular rutas.
+\item \textbf{Líneas 8-12:} Para cada depósito, resuelve el CVRP exacto con los clientes asignados.
+\item \textbf{Líneas 13-15:} Si el costo total es mejor que el récord, actualiza.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{ALNS: Adaptive Large Neighborhood Search}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{Idea central y motivación}
+
+\begin{pregunta}
+¿Por qué usar ALNS si el LRP es tan complejo?
+\end{pregunta}
+
+El LRP combinado tiene $2^m \cdot m^n \cdot \prod_d n_d!$ soluciones posibles. Para $n=20, m=5$ esto es astronómico. El ALNS navega este espacio de forma inteligente:
+
+\begin{enumerate}
+\item \textbf{Destruye} una parte de la solución actual (quita clientes de sus rutas).
+\item \textbf{Repara} la solución (reinserta esos clientes de forma óptima).
+\item \textbf{Aprende} qué operadores funcionan mejor y los usa más (ruleta adaptativa).
+\item \textbf{Acepta} soluciones peores a veces (Simulated Annealing) para escapar de mínimos locales.
+\end{enumerate}
+
+\subsection{Representación de la solución}
+
+Una solución en ALNS es una tripleta:
+$$S = (\mathcal{D}_{open},\ \mathcal{R},\ U)$$
+donde:
+\begin{itemize}
+\item $\mathcal{D}_{open}$: conjunto de depósitos abiertos (ej. $\{D1, D2\}$)
+\item $\mathcal{R}$: mapa de depósito $\to$ lista de rutas. Cada ruta es una secuencia de IDs de clientes.
+\item $U$: banco de clientes no asignados (vacío en soluciones factibles)
+\end{itemize}
+
+\textbf{Función objetivo:}
+$$f(S) = \underbrace{\sum_{d \in \mathcal{D}_{open}} O_d}_{\text{apertura}} + \underbrace{\sum_{r \in \mathcal{R}} \left(F + \sum_{\text{arcos de }r} c_{ij}\right)}_{\text{vehículos y distancia}} + \underbrace{10^5 \cdot |U|}_{\text{penalización huérfanos}}$$
+
+La penalización de $10^5$ por cliente no asignado es tan grande que cualquier solución infactible es mucho peor que cualquier factible.
+
+\begin{ejemplo}
+Solución concreta con la instancia anterior:
+\begin{itemize}
+\item $\mathcal{D}_{open} = \{D1, D2\}$
+\item $\mathcal{R}[D1] = \{[C1, C2],\ [C3]\}$
+\item $\mathcal{R}[D2] = \{[C4, C5],\ [C6]\}$
+\item $U = \emptyset$ (todos asignados)
+\end{itemize}
+$f(S) = (500+500) + 4\times100 + \text{distancias} = 1400 + \text{distancias}$
+\end{ejemplo}
+
+\subsection{Operadores de Destrucción}
+
+\begin{pregunta}
+¿Para qué sirven los operadores de destrucción?
+\end{pregunta}
+
+Los destructores \textbf{extraen clientes de sus rutas actuales} y los colocan en el banco de no asignados $U$. Esto crea un ``hueco'' en la solución que después el operador de reparación debe rellenar mejor. El objetivo es escapar de mínimos locales explorando configuraciones radicalmente diferentes.
+
+\textbf{Parámetro $q$:} número de clientes a destruir en cada operación (típicamente $10\%-40\%$ del total).
+
+\subsubsection{1. Random Removal (Destrucción Aleatoria)}
+
+\textbf{¿Qué hace?} Elige $q$ clientes al azar y los extrae de sus rutas.
+
+\textbf{¿Para qué sirve?} Introduce \textbf{diversificación pura}. Aunque es ``tonto'', evita que la búsqueda se quede atascada explorando siempre la misma zona del espacio de soluciones.
+
+\begin{ejemplo}
+Solución actual: $D1 \to [C1, C2, C3]$, $D2 \to [C4, C5, C6]$. Se sortea $q=2$.
+
+Se eligen aleatoriamente C2 y C5. Resultado tras destrucción:
+\begin{itemize}
+\item $D1 \to [C1, C3]$ (C2 salió)
+\item $D2 \to [C4, C6]$ (C5 salió)
+\item $U = \{C2, C5\}$
+\end{itemize}
+\end{ejemplo}
+
+\subsubsection{2. Worst Removal (Destrucción de los Peores)}
+
+\textbf{¿Qué hace?} Calcula el \textbf{costo marginal} de cada cliente (cuánto costaría sacarlo de su ruta) y extrae los $q$ más caros.
+
+\textbf{Costo marginal de remover cliente $j$ de la ruta $(\ldots, a, j, b, \ldots)$:}
+$$\Delta_j = c_{aj} + c_{jb} - c_{ab}$$
+Es decir, lo que ahorramos en distancia si sacamos a $j$ (eliminamos el desvío $a \to j \to b$ y lo reemplazamos por la conexión directa $a \to b$).
+
+\textbf{¿Para qué sirve?} Identifica clientes ``costosos'' que están mal ubicados en sus rutas actuales y los libera para ser reubicados más eficientemente.
+
+\begin{ejemplo}
+Ruta: $D1 \to C1 \to C3 \to C2 \to D1$.
+
+Costo marginal de C3 (ubicado entre C1 y C2):
+$$\Delta_{C3} = dist(C1, C3) + dist(C3, C2) - dist(C1, C2) = 583 + 1220 - 1389 = 414$$
+
+Costo marginal de C1 (ubicado entre D1 y C3):
+$$\Delta_{C1} = dist(D1, C1) + dist(C1, C3) - dist(D1, C3) = 1019 + 583 - 707 = 895$$
+
+C1 tiene mayor costo marginal $\to$ Worst Removal lo extrae primero si $q=1$.
+\end{ejemplo}
+
+\subsubsection{3. Shaw Removal (Destrucción por Similitud Geográfica)}
+
+\textbf{¿Qué hace?} Elige un cliente semilla al azar y extrae los $q$ clientes más \textbf{similares} (geográficamente cercanos) a él.
+
+\textbf{Función de similitud} entre clientes $i$ y $j$:
+$$sim(i, j) = \alpha \cdot c_{ij} + \beta \cdot |dem_i - dem_j| + \gamma \cdot mismo\_deposito(i,j)$$
+
+\textbf{¿Para qué sirve?} Si extraemos clientes geográficamente cercanos, el operador de reparación puede reorganizarlos en una ruta más eficiente juntos (clientes cercanos deberían estar en la misma ruta). Esto implementa el principio de \textbf{explotar la estructura espacial} del problema.
+
+\begin{ejemplo}
+Instancia con 6 clientes. Semilla aleatoria: C4 (35,45). Se buscan los 2 más cercanos:
+\begin{itemize}
+\item $dist(C4, C5) = dist((35,45),(45,38)) = 1220$ (en entero $\times 100$)
+\item $dist(C4, C6) = dist((35,45),(42,48)) = 761$
+\end{itemize}
+$q=2$: se extraen C4 (semilla) y C6 (más cercano a C4). Quedan en $U = \{C4, C6\}$.
+
+El operador de reparación los reintroducirá probablemente juntos en una ruta, ya que son geográficamente vecinos.
+\end{ejemplo}
+
+\subsubsection{4. Route Removal (Destrucción de Ruta Completa)}
+
+\textbf{¿Qué hace?} Elige una ruta completa al azar y extrae \textbf{todos} sus clientes.
+
+\textbf{¿Para qué sirve?} Presiona la \textbf{reducción de la flota}. Si una ruta tiene pocos clientes, eliminarla puede ser rentable si sus clientes se absorben en otras rutas existentes, ahorrando el costo fijo $F$ del vehículo eliminado.
+
+\begin{ejemplo}
+$D1 \to$ Ruta A: [C1, C2], Ruta B: [C3].
+Se elige aleatoriamente la Ruta B.
+Resultado: $U = \{C3\}$.
+
+Si el operador de reparación logra insertar C3 en la Ruta A (si cabe dentro de $Q$), se ahorra un vehículo ($F=100$).
+\end{ejemplo}
+
+\subsubsection{5. Depot Closing (Cierre de Depósito)}
+
+\textbf{¿Qué hace?} Elige un depósito abierto al azar y lo \textbf{cierra}: extrae todos sus clientes a $U$ y lo elimina de $\mathcal{D}_{open}$.
+
+\textbf{¿Para qué sirve?} Es el único destructor que actúa sobre las \textbf{decisiones estratégicas} de localización. Permite explorar configuraciones con menos depósitos abiertos, potencialmente ahorrando costos fijos de apertura $O_i$.
+
+\begin{ejemplo}
+$\mathcal{D}_{open} = \{D1, D2\}$. D1 tiene las rutas [C1,C2] y [C3]. Se cierra D1.
+
+Resultado:
+\begin{itemize}
+\item $\mathcal{D}_{open} = \{D2\}$
+\item $\mathcal{R}[D2] = \{[C4,C5], [C6]\}$ (sin cambios)
+\item $U = \{C1, C2, C3\}$ (todos los clientes de D1 pasan a no asignados)
+\end{itemize}
+
+El operador de reparación deberá reasignar C1,C2,C3 a D2 o reabrir D1 si es necesario.
+\end{ejemplo}
+
+\subsection{Operadores de Reparación}
+
+Los operadores de reparación \textbf{reinsertan} los clientes de $U$ en la solución.
+
+\subsubsection{1. Greedy Insertion (Inserción Codiciosa)}
+
+\textbf{¿Qué hace?} Para cada cliente en $U$, encuentra la posición de inserción de menor costo marginal y lo inserta allí.
+
+\textbf{Costo de inserción de $j$ entre $a$ y $b$ en la ruta de depósito $d$:}
+$$\delta(j, a, b, d) = c_{aj} + c_{jb} - c_{ab} + \text{penalización si supera }Q$$
+
+\textbf{Proceso:} Para cada $j \in U$, evalúa todas las posiciones en todas las rutas de todos los depósitos abiertos (y la apertura de nuevas rutas/depósitos). Inserta $j$ en la posición de menor $\delta$.
+
+\begin{nota}
+\textbf{¿En qué se diferencia $\delta$ (costo de inserción) del costo marginal $\Delta_j$ de \textit{worst\_removal}?}
+
+La fórmula es matemáticamente \textbf{idéntica}:
+$$\Delta_j = \delta(j,a,b,d) = c_{aj} + c_{jb} - c_{ab}$$
+pero el \textbf{sentido es opuesto}:
+
+\begin{itemize}
+  \item \textbf{Costo marginal} (\textit{worst\_removal}): mide cuánto \textbf{ahorramos} al \emph{sacar} al cliente $j$ de su posición $(a,j,b)$. Un valor alto indica que $j$ está mal ubicado y su extracción libera mucho costo.
+  \item \textbf{Costo de inserción} (\textit{greedy\_repair}): mide cuánto \textbf{pagamos} al \emph{meter} al cliente $j$ entre $a$ y $b$. Un valor bajo indica que $j$ encaja casi sin desviar la ruta.
+\end{itemize}
+
+Son operaciones inversas: si extraemos a $j$ de la posición $(a,j,b)$ con ahorro $\Delta_j$, y luego lo reinsertamos en esa misma posición, pagamos exactamente $\delta = \Delta_j$. El saldo neto es cero. La diferencia semántica existe porque \textit{worst\_removal} busca maximizar el ahorro de destrucción, mientras que \textit{greedy\_repair} busca minimizar el costo de reinserción.
+\end{nota}
+
+\begin{ejemplo}
+$U = \{C3\}$. Ruta existente en D1: [C1, C2]. Demanda actual: 33. $Q=60$.
+
+Posición 1 (inicio de ruta): $D1 \to C3 \to C1 \to C2$:
+$$\delta = dist(D1,C3) + dist(C3,C1) - dist(D1,C1) = 707+583-1019 = 271$$
+
+Posición 2 (entre C1 y C2): $D1 \to C1 \to C3 \to C2$:
+$$\delta = dist(C1,C3) + dist(C3,C2) - dist(C1,C2) = 583+1220-1389 = 414$$
+
+Posición 3 (al final): $D1 \to C1 \to C2 \to C3$:
+$$\delta = dist(C2,C3) + dist(C3,D1) - dist(C2,D1) = 1220+707-538 = 1389$$
+
+Greedy elige Posición 1 (costo adicional 271, el menor).
+\end{ejemplo}
+
+\subsubsection{2. Regret-2 Insertion (Inserción con Arrepentimiento)}
+
+\textbf{¿Qué hace?} Para cada cliente en $U$, calcula la diferencia de costo entre su \emph{mejor} y \emph{segunda mejor} posición de inserción. Inserta primero el cliente con mayor ``arrepentimiento'' (el que más perdería si se deja para después).
+
+$$regret_2(j) = \delta^{(2)}(j) - \delta^{(1)}(j)$$
+
+\textbf{¿Por qué es mejor que Greedy?} Greedy puede insertar primero un cliente ``barato'' en cierta posición, pero al hacerlo ``bloquea'' a otro cliente que en realidad tenía más urgencia.
+
+\begin{ejemplo}
+$U = \{C3, C4\}$.
+\begin{itemize}
+\item C3: mejor inserción = 271, segunda mejor = 414. Regret = 143.
+\item C4: mejor inserción = 150, segunda mejor = 800. Regret = 650.
+\end{itemize}
+Greedy insertaría C4 primero (costo 150, el más barato).
+Regret-2 insertaría C4 primero también en este caso, pero por una razón diferente: si no insertamos C4 ahora, la penalización es enorme (950 de diferencia). El mecanismo de regret evita el ``arrepentimiento''.
+
+Caso donde difieren: si C3 fuera muy barato de insertar en múltiples sitios y C4 tiene una sola buena posición que puede ser ``ocupada'' por otros clientes, Regret-2 prioriza C4.
+\end{ejemplo}
+
+\subsection{Ruleta Adaptativa (el mecanismo de aprendizaje)}
+
+\begin{pregunta}
+¿Qué significa ``adaptativo'' en ALNS?
+\end{pregunta}
+
+El ALNS mantiene un \textbf{peso $w_i$} para cada operador. Al inicio todos tienen peso 1. Tras cada uso, el operador recibe una recompensa:
+
+\begin{center}
+\begin{tabular}{clc}
+\toprule
+Recompensa & Condición & Valor típico \\
+\midrule
+$\sigma_1$ & Se encontró nuevo óptimo global & 33 \\
+$\sigma_2$ & La solución nueva mejora a la actual & 9 \\
+$\sigma_3$ & La solución nueva fue aceptada por SA (aunque peor) & 13 \\
+$\sigma_4$ & La solución nueva fue rechazada & 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Cada $T$ iteraciones (``segmento''), los pesos se actualizan:
+$$w_{i,\text{nuevo}} = w_{i,\text{antiguo}} \cdot (1 - \rho) + \rho \cdot \frac{score_i}{usos_i}$$
+
+donde $\rho \in [0,1]$ es el factor de reacción (cuánto peso damos a la experiencia reciente). En nuestro código: $\rho = 0.1$, $T = 100$.
+
+\textbf{Probabilidad de selección} (ruleta proporcional):
+$$P(\text{elegir operador } i) = \frac{w_i}{\sum_j w_j}$$
+
+\begin{ejemplo}
+Segmento de 100 iteraciones. Destroyer ``Shaw'' se usó 30 veces y acumuló score 150 (promedio 5.0 por uso). Destroyer ``Random'' se usó 40 veces, score 80 (promedio 2.0). Pesos actuales: Shaw=1.8, Random=1.2.
+
+Actualización con $\rho=0.1$:
+\begin{align*}
+w_{\text{Shaw}}^{nuevo} &= 1.8 \cdot 0.9 + 0.1 \cdot 5.0 = 1.62 + 0.50 = 2.12 \\
+w_{\text{Random}}^{nuevo} &= 1.2 \cdot 0.9 + 0.1 \cdot 2.0 = 1.08 + 0.20 = 1.28
+\end{align*}
+
+Probabilidades: Shaw se selecciona el 62\% de las veces, Random el 38\%.
+El algoritmo aprende que Shaw ha sido más efectivo recientemente.
+\end{ejemplo}
+
+\subsection{Simulated Annealing (criterio de aceptación)}
+
+\begin{pregunta}
+¿Por qué aceptar soluciones peores?
+\end{pregunta}
+
+La búsqueda local pura siempre acepta soluciones mejores y rechaza las peores, lo que la atrapa en mínimos locales. SA permite ``subir colinas'' con probabilidad decreciente:
+
+$$P(\text{aceptar } s' | s) = \exp\!\left(-\frac{f(s') - f(s)}{\mathcal{T}}\right) \quad \text{si } f(s') > f(s)$$
+
+La temperatura $\mathcal{T}$ baja geometricamente en cada iteración:
+$$\mathcal{T}_{k+1} = \alpha \cdot \mathcal{T}_k \quad (\alpha \in (0,1))$$
+
+En nuestro código: $\mathcal{T}_0 = 50000$, $\mathcal{T}_{fin} = 1.0$, $\alpha = 0.998$.
+
+\begin{ejemplo}
+Solución actual: $f(s) = 11500$. Nueva solución: $f(s') = 11600$ (100 unidades peor).
+
+Con temperatura $\mathcal{T} = 500$:
+$$P = e^{-100/500} = e^{-0.2} \approx 0.819 \quad (81.9\% \text{ de aceptación})$$
+
+Con temperatura $\mathcal{T} = 50$ (más avanzado el algoritmo):
+$$P = e^{-100/50} = e^{-2} \approx 0.135 \quad (13.5\% \text{ de aceptación})$$
+
+Al principio el algoritmo acepta soluciones peores fácilmente (exploración). Al final es muy selectivo (explotación).
+\end{ejemplo}
+
+\subsection{Pseudocódigo ALNS con explicación línea por línea}
+
+\begin{algorithm}[H]
+\caption{ALNS para LRP (detallado)}
+\label{alg:alns}
+\begin{algorithmic}[1]
+\Require Instancia LRP, parámetros $\mathcal{T}_0, \alpha, \rho, T, \sigma_1, \sigma_2, \sigma_3, \sigma_4$, \textit{max\_iter}
+\Ensure Mejor solución encontrada $s_{best}$
+\State $s \gets$ \Call{GenerarSolucionInicial}{}          \Comment{Greedy: abrir todos los depósitos}
+\State $s_{best} \gets s$                                  \Comment{Mejor global}
+\State $w_d^{(i)} \gets 1$ para todo destructor $i$       \Comment{Pesos iniciales iguales}
+\State $w_r^{(j)} \gets 1$ para todo reparador $j$
+\State $\mathcal{T} \gets \mathcal{T}_0$                   \Comment{Temperatura inicial}
+\For{$iter = 1$ \textbf{to} \textit{max\_iter}}
+    \State $i \gets$ \Call{SeleccionarRuleta}{$w_d$}       \Comment{Elegir destructor por peso}
+    \State $j \gets$ \Call{SeleccionarRuleta}{$w_r$}       \Comment{Elegir reparador por peso}
+    \State $s'' \gets$ \Call{Destruir}{$s, i$}                                \Comment{Aplicar destructor $i$}
+    \State $s' \gets$ \Call{Reparar}{$s'', j$}                               \Comment{Aplicar reparador $j$}
+    \If{$f(s') < f(s_{best})$}                             \Comment{Nuevo óptimo global}
+        \State $s \gets s'$,\ $s_{best} \gets s'$
+        \State $\sigma \gets \sigma_1$
+    \ElsIf{$f(s') < f(s)$}                                \Comment{Mejora la solución actual}
+        \State $s \gets s'$
+        \State $\sigma \gets \sigma_2$
+    \ElsIf{$Random(0,1) < \exp(-(f(s')-f(s))/\mathcal{T})$} \Comment{Aceptar por SA}
+        \State $s \gets s'$
+        \State $\sigma \gets \sigma_3$
+    \Else
+        \State $\sigma \gets \sigma_4$                     \Comment{Rechazada}
+    \EndIf
+    \State $score_i \gets score_i + \sigma$                \Comment{Acumular puntaje destructor}
+    \State $score_j \gets score_j + \sigma$                \Comment{Acumular puntaje reparador}
+    \State $usos_i \gets usos_i + 1$,\ $usos_j \gets usos_j + 1$
+    \State $\mathcal{T} \gets \max(\mathcal{T} \cdot \alpha,\ \mathcal{T}_{fin})$ \Comment{Enfriar}
+    \If{$iter \mod T = 0$}                                 \Comment{Cada segmento}
+        \State \Call{ActualizarPesos}{$w, score, usos, \rho$} \Comment{Aprendizaje adaptativo}
+    \EndIf
+\EndFor
+\State \Return $s_{best}$
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Explicación detallada de cada línea:}
+
+\begin{itemize}[leftmargin=2cm]
+\item[\textbf{L.1}] \texttt{GenerarSolucionInicial}: abre todos los depósitos, inserta todos los clientes usando Greedy. Rápido y factible.
+\item[\textbf{L.2}] Copia la solución inicial como mejor conocida.
+\item[\textbf{L.3-4}] Todos los operadores arrancan con el mismo peso (1.0). La ruleta los usa con igual probabilidad al inicio.
+\item[\textbf{L.5}] La temperatura inicial es alta ($\mathcal{T}_0=50000$), lo que permite aceptar casi cualquier solución peor.
+\item[\textbf{L.6}] El ciclo principal. Con 5000 iteraciones en nuestro código.
+\item[\textbf{L.7-8}] Ruleta: se sortea un número en $[0, \sum w]$, se elige el operador cuyo peso acumulado alcanza el número sorteado.
+\item[\textbf{L.9}] Primero se aplica el destructor (extrae $q$ clientes a $U$), luego el reparador (los reinserta). El resultado es $s'$.
+\item[\textbf{L.10-20}] Clasificación del resultado: 4 casos posibles. Se asigna una recompensa $\sigma$ al par (destructor, reparador) usado.
+\item[\textbf{L.21-23}] Acumulación de estadísticas para el aprendizaje adaptativo.
+\item[\textbf{L.24}] Enfriamiento geométrico de la temperatura. Con $\alpha=0.998$ y $T_0=50000$: $50000 \times 0.998^{5000} \approx 2.06$.
+\item[\textbf{L.25-27}] Actualización de pesos al final de cada segmento de 100 iteraciones. Los operadores que funcionaron bien reciben mayor peso para ser más seleccionados.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{MA$|$PM: Algoritmo Memético con Gestión de Población}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{¿Qué significan MA y PM?}
+
+\begin{pregunta}
+¿Qué significa MA$|$PM?
+\end{pregunta}
+
+\begin{itemize}
+\item \textbf{MA (Memetic Algorithm):} Un \textbf{Algoritmo Genético} (Genetic Algorithm) combinado con \textbf{búsqueda local} intensiva. El término ``memético'' viene de ``meme'' (analogía biológica): no solo se hereda el genoma (estructura de rutas), sino también el ``conocimiento aprendido'' (la búsqueda local pule cada individuo). Es decir: evolución genética + refinamiento individual = Memético.
+
+\item \textbf{PM (Population Management):} La barra $|$ separa el tipo de algoritmo de su estrategia de gestión de población. ``PM'' (del inglés \textit{Population Management}) es el mecanismo específico propuesto por Prins et al. (2006) para mantener \textbf{diversidad genética}: un individuo nuevo solo entra a la población si es ``suficientemente diferente'' de los que ya existen, medido por la Distancia de Pares Rotos (BPD).
+\end{itemize}
+
+\begin{nota}
+El nombre completo en el paper original es MA$|$PM = \textbf{Memetic Algorithm with Population Management}. La distinción es: un GA clásico puede degenerar llenando la población de ``clones'' (soluciones muy similares). El PM evita esto con el umbral de diversidad $\Delta$.
+\end{nota}
+
+\subsection{El Cromosoma: Giant Tour + Estado de Depósitos}
+
+A diferencia del ALNS, el MA$|$PM usa \textbf{codificación indirecta}:
+
+$$\text{Cromosoma} = \underbrace{(DS_1, DS_2, \ldots, DS_m)}_{\text{vector de depósitos}} + \underbrace{(\pi_1, \pi_2, \ldots, \pi_{|C|})}_{\text{permutación de clientes (Giant Tour)}}$$
+
+\begin{itemize}
+\item \textbf{DS (Depot State):} Vector binario de longitud $m$. $DS_i=1$ si el depósito $i$ está abierto.
+\item \textbf{CS (Client Sequence):} Permutación de los $|C|$ clientes. Esta secuencia se llama \textbf{Giant Tour} porque es como un ``gran recorrido'' que visita a todos los clientes en algún orden, sin indicar dónde empieza/termina cada ruta ni a qué depósito pertenece.
+\end{itemize}
+
+\begin{ejemplo}
+Con 6 clientes (C1..C6) y 2 depósitos:
+$$\text{Cromosoma} = \underbrace{(1, 1)}_{\text{DS: D1 y D2 abiertos}} + \underbrace{(C3, C1, C2, C5, C4, C6)}_{\text{CS: Giant Tour}}$$
+El Giant Tour no dice nada sobre rutas todavía. Eso lo determinará el algoritmo Split.
+\end{ejemplo}
+
+\subsection{El Algoritmo Split: corazón del MA$|$PM}
+
+\begin{pregunta}
+¿Cómo funciona el algoritmo Split?
+\end{pregunta}
+
+El \textbf{Split} transforma el Giant Tour en rutas concretas. Es el ``decodificador'' del cromosoma.
+
+\subsubsection{Intuición}
+
+Dado el Giant Tour $(C3, C1, C2, C5, C4, C6)$, el Split pregunta: ¿dónde ``cortamos'' esta secuencia para formar rutas válidas que no superen $Q$ y se asignen óptimamente a los depósitos abiertos?
+
+\subsubsection{Construcción del grafo auxiliar $G'$}
+
+Se construye un grafo dirigido acíclico con $n+1$ nodos: los nodos $0, 1, \ldots, n$ representan los ``puntos de corte'' en la secuencia. Existe un arco de $u$ a $v$ (con $u < v$) si los clientes $\pi_{u+1}, \ldots, \pi_v$ forman una ruta factible (demanda total $\leq Q$). El peso del arco $u \to v$ es el costo de esa ruta más el costo de asignación al depósito óptimo.
+
+\subsubsection{Shortest Path = partición óptima}
+
+El \textbf{camino más corto} desde el nodo $0$ hasta el nodo $n$ en $G'$ define exactamente los cortes y la asignación de rutas a depósitos que minimizan el costo total.
+
+\begin{ejemplo}
+Giant Tour: $(C3, C1, C2, C5, C4, C6)$. $Q=35$ (máx 2 clientes por ruta para simplificar). Depósitos abiertos: D1=(10,10), D2=(40,40).
+
+Arcos posibles en $G'$ (rutas de 1 o 2 clientes que cumplen $Q=35$):
+
+\textit{Arcos de un cliente:}
+\begin{itemize}
+\item $0 \to 1$ (ruta $\{C3\}$): demanda 22. Mejor depósito = D1 (más cercano). Costo = $O_{D1,si nuevo} + F + dist(D1,C3) + dist(C3,D1)$
+\item $1 \to 2$ (ruta $\{C1\}$): demanda 18. D1 más cercano.
+\item $\ldots$ similarmente para los demás
+\end{itemize}
+
+\textit{Arcos de dos clientes:}
+\begin{itemize}
+\item $0 \to 2$ (ruta $\{C3, C1\}$): demanda $22+18=40 > Q=35$ \textrightarrow{} \textbf{INFACTIBLE}. No existe arco.
+\item $1 \to 3$ (ruta $\{C1, C2\}$): demanda $18+15=33 \leq 35$. Factible. D1 más cercano.
+\item $3 \to 5$ (ruta $\{C5, C4\}$): demanda $14+16=30 \leq 35$. D2 más cercano.
+\item $4 \to 6$ (ruta $\{C4, C6\}$): demanda $16+20=36 > Q=35$ \textrightarrow{} \textbf{INFACTIBLE}.
+\item $4 \to 5$ (ruta $\{C4\}$): factible. \quad $5 \to 6$ (ruta $\{C6\}$): factible.
+\end{itemize}
+
+El algoritmo Bellman-Ford calcula el camino de menor costo de $0$ a $6$. Supongamos que la solución óptima es:
+$$0 \to 3 \to 5 \to 6 \quad (\text{ruta}[0\to3]=\{C3,C1,C2\}\ \text{a D1},\ [3\to5]=\{C5,C4\}\ \text{a D2},\ [5\to6]=\{C6\}\ \text{a D2})$$
+
+Espera --- $\{C3, C1, C2\}$ tiene demanda $22+18+15=55 > Q=35$, infactible. En este ejemplo con $Q=35$ el Split encontraría el camino factible correcto automáticamente.
+
+Con $Q=60$, el Split podría devolver una ruta única $\{C3,C1,C2\}$ asignada a D1 y una sola ruta $\{C5,C4,C6\}$ asignada a D2, si eso es lo más barato.
+\end{ejemplo}
+
+\begin{nota}
+La \textbf{brillantez del Split} es que hace el trabajo duro: dado cualquier Giant Tour, encuentra en tiempo $O(n^2)$ la mejor forma de convertirlo en rutas reales. Esto permite que el cruce genético opere libremente sobre permutaciones de clientes sin preocuparse por factibilidad.
+\end{nota}
+
+\subsection{Pseudocódigo del Split}
+
+\begin{algorithm}[H]
+\caption{LRP-Split (Bellman-Ford en grafo auxiliar)}
+\label{alg:split}
+\begin{algorithmic}[1]
+\Require Giant Tour $\Pi = (\pi_1, \ldots, \pi_n)$, depósitos abiertos $\mathcal{D}_{open}$, instancia LRP
+\Ensure Rutas $\mathcal{R}$ y costo total de routing
+\State $d[0] \gets 0$, $d[v] \gets +\infty$ para $v = 1, \ldots, n$  \Comment{DP de Bellman-Ford}
+\State $pred[v] \gets -1$ para todo $v$
+\For{$u \gets 0$ \textbf{to} $n-1$}
+    \State $dem \gets 0$, $costo\_ruta \gets 0$
+    \For{$v \gets u+1$ \textbf{to} $n$}                              \Comment{Extender la ruta actual}
+        \State $dem \gets dem + demanda(\pi_v)$
+        \If{$dem > Q$} \textbf{break} \EndIf                         \Comment{Supera capacidad, no más extensión}
+        \State $c_{ruta} \gets F + dist\_ruta(\pi_{u+1..v}, \mathcal{D}_{open})$ \Comment{Costo + mejor depósito}
+        \If{$d[u] + c_{ruta} < d[v]$}
+            \State $d[v] \gets d[u] + c_{ruta}$
+            \State $pred[v] \gets u$                                  \Comment{Guardar punto de corte}
+        \EndIf
+    \EndFor
+\EndFor
+\State Reconstruir rutas usando $pred[]$ desde $n$ hasta $0$
+\State \Return rutas reconstruidas, $d[n]$
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Explicación línea por línea:}
+\begin{itemize}[leftmargin=2cm]
+\item[\textbf{L.1}] El nodo 0 es el ``inicio'' (antes del primer cliente). Su distancia es 0.
+\item[\textbf{L.3-11}] Doble bucle: para cada posición de inicio $u$, extiende la ruta añadiendo clientes $\pi_{u+1}, \pi_{u+2}, \ldots$ hasta que la demanda supere $Q$.
+\item[\textbf{L.5}] Acumula la demanda de la ruta $(\pi_{u+1}, \ldots, \pi_v)$.
+\item[\textbf{L.6-7}] Poda: si agregar $\pi_v$ haría la demanda superar $Q$, esa posición de fin no es válida y no tiene sentido seguir extendiendo.
+\item[\textbf{L.8}] Calcula el costo de la ruta más el costo del mejor depósito que puede asumir esta ruta sin violar $W_i$.
+\item[\textbf{L.9-11}] Actualiza el DP si este camino es mejor.
+\item[\textbf{L.12}] Reconstruye las rutas siguiendo los punteros $pred[]$ de atrás hacia adelante.
+\end{itemize}
+
+\subsection{Inicialización de la Población}
+
+La población inicial de $\mu$ cromosomas se construye así:
+\begin{enumerate}
+\item Una fracción con heurística \textbf{Savings} (Clarke-Wright) + ruido estocástico.
+\item El resto como permutaciones \textbf{aleatorias} del conjunto $C$.
+\item Cada individuo es evaluado con Split y se le aplica \textbf{búsqueda local}.
+\end{enumerate}
+
+En nuestro código: $\mu = (n+m)/5 + 1$. Para $n=20, m=5$: $\mu=6$.
+
+\subsection{Operador de Cruce OX (Order Crossover)}
+
+\begin{pregunta}
+¿Por qué OX y no otros cruces?
+\end{pregunta}
+
+El OX preserva el \textbf{orden relativo} de los clientes, que codifica la estructura espacial de las rutas. Un cliente que en el padre va ``antes que'' otro mantendrá esa relación en el hijo.
+
+\textbf{Proceso del OX:}
+\begin{enumerate}
+\item Seleccionar dos puntos de corte $k_1, k_2$ al azar.
+\item Copiar el segmento $(\pi_{k_1}, \ldots, \pi_{k_2})$ del Padre 1 al Hijo.
+\item Completar el Hijo con los clientes restantes del Padre 2, en el orden en que aparecen, saltando los ya presentes.
+\end{enumerate}
+
+\begin{ejemplo}
+Padre 1: $(C3, C1, C2, C5, C4, C6)$. Padre 2: $(C1, C4, C3, C6, C2, C5)$.
+Cortes en posiciones 2 y 4 (0-indexed):
+
+\begin{center}
+\begin{tabular}{ccccccc}
+Padre 1: & C3 & \underline{C1} & \underline{C2} & \underline{C5} & C4 & C6 \\
+         &    & $k_1$=2        &               & $k_2$=4        &    &    \\
+\end{tabular}
+\end{center}
+
+Segmento copiado al hijo: posiciones 2-4 $= (C1, C2, C5)$.
+
+Padre 2 en orden circular desde $k_2+1$: $C5$ (ya está), $C1$ (ya está), $C3$ (libre!), $C6$ (libre!), $C2$ (ya está), $C4$ (libre!).
+
+Hijo: $(C3, \mathbf{C1, C2, C5}, C6, C4)$.
+
+Los clientes C1,C2,C5 vienen del Padre 1 (en ese orden). Los demás C3,C6,C4 vienen del orden del Padre 2.
+\end{ejemplo}
+
+\subsection{Búsqueda Local (Fase de Educación)}
+
+Después de decodificar con Split, se aplican 3 operadores de mejora:
+
+\subsubsection{LS1 --- Relocate (entre rutas y depósitos)}
+
+\textbf{¿Qué hace?} Intenta mover un cliente de su ruta/depósito actual a otra posición (otra ruta, otro depósito, o nueva ruta). Acepta si reduce el costo.
+
+\begin{ejemplo}
+Solución actual: D1$\to$[C1,C2], D2$\to$[C4,C5,C6].
+
+Probar mover C6 de D2 a D1:
+\begin{itemize}
+\item Costo de sacar C6 de D2: $-dist(C5,C6) - dist(C6,D2) + dist(C5,D2)$
+\item Si D2 queda vacía: $-O_{D2}$ (ahorro de apertura)
+\item Costo de insertar C6 al final de D1: $+dist(C2,C6) + dist(C6,D1)$
+\end{itemize}
+Si el ahorro neto es positivo, se acepta el movimiento.
+\end{ejemplo}
+
+\subsubsection{LS2 --- Swap (intercambio entre rutas)}
+
+\textbf{¿Qué hace?} Intercambia dos clientes de rutas distintas (o posiciones distintas en la misma ruta). Acepta si reduce el costo.
+
+\begin{ejemplo}
+D1$\to$[C1,C2], D2$\to$[C4,C5].
+
+Probar swap(C2, C4):
+\begin{itemize}
+\item Nuevo D1: [C1,C4]. Nuevo D2: [C2,C5].
+\item Calcular cambio en distancias y verificar capacidades.
+\end{itemize}
+Si el nuevo costo total es menor, se acepta.
+\end{ejemplo}
+
+\subsubsection{2-opt (eliminación de cruces)}
+
+\textbf{¿Qué hace?} Dentro de una ruta, invierte el orden de un segmento intermedio para eliminar cruces de arcos.
+
+\begin{ejemplo}
+Ruta: $D1 \to C1 \to C3 \to C2 \to D1$. Las aristas C1-C3 y C3-C2 se cruzan geométricamente.
+
+2-opt invierte el segmento [C3, C2]: $D1 \to C1 \to C2 \to C3 \to D1$.
+
+Si $dist(C1,C2) + dist(C3,D1) < dist(C1,C3) + dist(C2,D1)$, el 2-opt mejora la solución.
+\end{ejemplo}
+
+\subsection{Distancia BPD y Gestión de Población (el PM)}
+
+\begin{pregunta}
+¿Qué es la BPD y por qué es crucial para MA$|$PM?
+\end{pregunta}
+
+\begin{definicion}
+La \textbf{Broken Pairs Distance (BPD)} cuenta cuántos ``pares adyacentes'' difieren entre dos soluciones. Si en la solución A el cliente $i$ es seguido de $j$ en alguna ruta, ese par $(i,j)$ está ``activo''. Si en la solución B ese par no aparece, se dice que está ``roto''.
+$$BPD(A, B) = \text{número de pares adyacentes en A que no aparecen en B}$$
+\end{definicion}
+
+\begin{ejemplo}
+Solución A: D1$\to$[C1$\to$C2$\to$C3], D2$\to$[C4$\to$C5].
+Pares en A: $\{(C1,C2), (C2,C3), (C4,C5)\}$.
+
+Solución B: D1$\to$[C1$\to$C3], D2$\to$[C4$\to$C2$\to$C5].
+Pares en B: $\{(C1,C3), (C4,C2), (C2,C5)\}$.
+
+Pares de A que no están en B: $(C1,C2)$, $(C2,C3)$, $(C4,C5)$ --- los 3 pares ``se rompieron''.
+$$BPD(A, B) = 3$$
+
+En nuestro código, además se ponderan según el tipo de diferencia:
+\begin{itemize}
+\item Pares adyacentes en misma ruta: penalidad 0 (iguales)
+\item En misma ruta pero no adyacentes: +1
+\item En mismo depósito pero ruta diferente: +5
+\item En depósitos diferentes: +10
+\end{itemize}
+\end{ejemplo}
+
+\textbf{El umbral $\Delta$:} Un nuevo individuo solo entra a la población si su BPD respecto al más similar de la población es $\geq \Delta$. Si $\Delta = 5$ y el mejor individuo similar tiene BPD$=3$, el nuevo individuo es rechazado (demasiado parecido).
+
+\begin{nota}
+El umbral $\Delta$ se ajusta dinámicamente: si hay muchos rechazos consecutivos (NbRej $>$ MaxNbRej), $\Delta$ disminuye en 1, permitiendo individuos más similares. Esto evita que el algoritmo se quede sin nuevos individuos.
+\end{nota}
+
+\subsection{Pseudocódigo MA$|$PM con explicación línea por línea}
+
+\begin{algorithm}[H]
+\caption{MA$|$PM para LRP (Prins et al. 2006)}
+\label{alg:mapm}
+\begin{algorithmic}[1]
+\Require Instancia LRP, parámetros $\mu, MaxNbAcc, MaxNbNoAdd, MaxNbRej, \Delta_{max}, \beta$
+\Ensure Mejor solución encontrada $s_{best}$
+\State $P \gets$ \Call{GenerarPoblacion}{$\mu$, Savings + Aleatorio}  \Comment{Población inicial}
+\For{cada $c \in P$}
+    \State \Call{EvaluarSplit}{$c$}
+    \State \Call{BúsquedaLocal}{$c$} \Comment{Fase de educación inicial}
+\EndFor
+\State $s_{best} \gets \arg\min_{c \in P} fitness(c)$          \Comment{Mejor de la población inicial}
+\State $NbAcc \gets 0$                                         \Comment{Total de aceptaciones}
+\Repeat                                                        \Comment{Loop externo}
+    \State $\Delta \gets \Delta_{max}$, $NbNoAdd \gets 0$       \Comment{Reset parcial por iteración externa}
+    \Repeat                                                    \Comment{Loop interno}
+        \State $P_a \gets$ \Call{SeleccionarPadreA}{$P, \beta$} \Comment{Torneo: toma el mejor entre $\beta$ candidatos}
+        \State $P_b \gets$ \Call{SeleccionarPadreB}{$P, P_a$}  \Comment{Padre diferente, aleatorio}
+        \State $H \gets$ \Call{OX-Crossover}{$P_a, P_b$}       \Comment{Cruce de orden en el Giant Tour}
+        \State \Call{EvaluarSplit}{$H$}                        \Comment{Decodificar: Giant Tour $\to$ rutas}
+        \State \Call{BúsquedaLocal}{$H$}  \Comment{Educación: LS1 con prob $p_1$, LS2 con prob $p_2$}
+        \If{$fitness(H) < fitness(s_{best})$}                  \Comment{Nuevo óptimo global}
+            \State $s_{best} \gets H$, $\Delta \gets \Delta_{max}$
+        \EndIf
+        \State $d_{pop} \gets$ \Call{BPDmin}{$H, P$}           \Comment{Distancia mínima a la población}
+        \If{$d_{pop} < \Delta$}                                \Comment{Demasiado similar}
+            \State $NbRej \gets NbRej + 1$, $NbNoAdd \gets NbNoAdd + 1$
+        \Else                                                  \Comment{Suficientemente diverso}
+            \State $NbRej \gets 0$, $NbAcc \gets NbAcc + 1$
+            \State \Call{InsertarEnPoblacion}{$P, H$}          \Comment{Reemplaza al peor}
+        \EndIf
+        \If{$NbRej > MaxNbRej$}
+            \State $\Delta \gets \max(1, \Delta - 1)$          \Comment{Relajar umbral de diversidad}
+        \EndIf
+    \Until{$NbNoAdd > MaxNbNoAdd$ \textbf{o} $NbAcc > MaxNbAcc$} \Comment{Condición OR}
+    \State \Call{InsertarEnPoblacion}{$P, s_{best}$}           \Comment{Reinsertar élite}
+    \State \Call{RefrescarPoblacion}{$P$}                      \Comment{Sustituir los peores}
+\Until{$NbAcc > MaxNbAcc$}                                     \Comment{Loop externo}
+\State \Return $s_{best}$
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Explicación detallada:}
+
+\begin{itemize}[leftmargin=2cm]
+\item[\textbf{L.1}] Construye la población inicial. Parte de los individuos vienen de heurísticas constructivas, parte son aleatorios.
+\item[\textbf{L.2-4}] Evalúa cada individuo: primero Split (obtener rutas del Giant Tour) y luego búsqueda local (mejorar las rutas). Esta ``educación inicial'' da calidad desde el arranque.
+\item[\textbf{L.5}] Guarda al mejor individuo como solución élite global.
+\item[\textbf{L.6}] Contador global de aceptaciones (no se resetea entre iteraciones externas).
+\item[\textbf{L.7}] Loop externo: continúa hasta que el total de aceptaciones supere $MaxNbAcc$.
+\item[\textbf{L.8}] Reinicia $\Delta$ al valor máximo y el contador de no-adiciones.
+\item[\textbf{L.9}] Loop interno: genera y evalúa nuevos hijos.
+\item[\textbf{L.10}] SeleccionarPadreA: torneo de $\beta$ candidatos, gana el de menor costo. $\beta = NbIndiv/3$.
+\item[\textbf{L.11}] SeleccionarPadreB: aleatorio entre los restantes.
+\item[\textbf{L.12}] Cruce OX sobre los vectores CS (Giant Tour). Los vectores DS también se cruzan.
+\item[\textbf{L.13}] Split convierte el Giant Tour del hijo en rutas explícitas y calcula su fitness.
+\item[\textbf{L.14}] Con probabilidad $p_1=0.5$ se aplica LS1 (Relocate), con probabilidad $p_2=0.7$ se aplica LS2 (Swap), con el resto ninguno.
+\item[\textbf{L.15-17}] Si el hijo supera el récord global, actualizar y resetear $\Delta$.
+\item[\textbf{L.18}] Calcula la BPD mínima del hijo respecto a todos los individuos actuales de la población.
+\item[\textbf{L.19-21}] Rechazo: el hijo es demasiado parecido a alguien de la población. Se incrementan contadores pero no se modifica la población.
+\item[\textbf{L.22-24}] Aceptación: el hijo es suficientemente diverso. Se resetea el contador de rechazos consecutivos, se acepta (NbAcc++) y se inserta en la población (reemplazando al peor).
+\item[\textbf{L.25-27}] Si hay demasiados rechazos consecutivos (NbRej $>$ MaxNbRej), el umbral $\Delta$ se reduce en 1 para ser más permisivo con la diversidad.
+\item[\textbf{L.28}] \textbf{Condición clave (OR):} el loop interno sale cuando \textit{o bien} hay demasiada estagnación (NbNoAdd $>$ MaxNbNoAdd) \textit{o bien} ya se aceptaron suficientes individuos (NbAcc $>$ MaxNbAcc).
+\item[\textbf{L.29}] Reinserta al mejor conocido en la población (garantiza que la élite no se pierda en el refresco).
+\item[\textbf{L.30}] RefrescarPoblacion: genera nuevos individuos para reemplazar a los peores, asegurando variedad para la siguiente iteración externa.
+\end{itemize}
+
+\subsection{Parámetros por defecto y cómo se calculan}
+
+Para una instancia con $n$ clientes y $m$ depósitos, los parámetros se calculan automáticamente:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Parámetro & Fórmula & Ejemplo ($n=20, m=5$) \\
+\midrule
+$\mu$ = NbIndiv & $(n+m)/5 + 1$ & 6 individuos \\
+MaxNbAcc & $(n+m) \times 10$ & 250 \\
+MaxNbNoAdd & $(n+m) \times 2.5$ & 62 \\
+MaxNbRej & $\mu$ & 6 \\
+$\Delta_{max}$ & $(n+m)/10 + 10$ & 12 \\
+$\beta$ & $\max(1, \mu/3)$ & 2 \\
+$p_1$ & 0.5 & 0.5 \\
+$p_2$ & 0.7 & 0.7 \\
+$\alpha_{pen}$ & 1000.0 & 1000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Comparación entre los tres algoritmos}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\begin{center}
+\begin{tabular}{>{\bfseries}lp{3.8cm}p{3.8cm}p{3.8cm}}
+\toprule
+Aspecto & Fuerza Bruta & ALNS & MA$|$PM \\
+\midrule
+Tipo & Exacto & Metaheurístico & Metaheurístico \\
+Garantía & Óptimo global & No garantizada & No garantizada \\
+Escalabilidad & $n \leq 12$ & $n \leq 200+$ & $n \leq 200+$ \\
+Representación & Implícita & Rutas explícitas & Giant Tour (indirecto) \\
+Diversificación & Enumeración completa & Destructores + SA & Cruce OX + BPD \\
+Intensificación & DP exacto & Reparadores codiciosos & Búsqueda local (LS1/LS2/2-opt) \\
+Aprendizaje & N/A & Ruleta adaptativa de pesos & N/A (evolución poblacional) \\
+Tiempo ($n=20$) & Intratible & $\sim$1s & $\sim$0.3s \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Resultados de Validación}
+% ══════════════════════════════════════════════════════════════════════════════
+
+Se ejecutaron los tres algoritmos sobre las instancias pequeñas creadas ad-hoc:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+Instancia & $n$ & $m$ & BF (óptimo) & ALNS gap\% & MA$|$PM gap\% \\
+\midrule
+coord10-2-1.dat & 10 & 2 & 11576 & 0.00\% & 0.00\% \\
+coord10-2-2.dat & 10 & 2 & 15912 & 0.00\% & 0.33\% \\
+coord12-2-1.dat & 12 & 2 & 15123 & 0.00\% & 0.00\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{nota}
+El gap 0.00\% en la mayoría de instancias indica que ambos metaheurísticos \textbf{encuentran el óptimo global} en instancias pequeñas. El gap 0.33\% en coord10-2-2.dat con MA$|$PM es normal: el algoritmo genético tiene componente estocástico y en esta corrida particular no llegó al óptimo exacto (con más iteraciones o diferente semilla probablemente lo encontraría).
+\end{nota}
+
+\subsection{Gap respecto a BKS (instancias Prodhon)}
+
+Para las instancias reales de benchmarking, el gap se calcula respecto a la mejor solución conocida (BKS):
+$$Gap(\%) = \frac{Z_{alg} - Z_{BKS}}{Z_{BKS}} \times 100$$
+
+Un gap menor indica mejor calidad. Los metaheurísticos del estado del arte logran gaps entre 0\% y 5\% en las instancias Prodhon.
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Algoritmo Validador de Restricciones}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\subsection{¿Por qué existe el validador?}
+
+Cuando un metaheurístico devuelve una solución con costo $Z = 11{,}576$, ¿cómo sabemos que esa solución es \emph{correcta}? La función objetivo $Z$ puede calcularse sobre cualquier estado, incluso uno infactible (con clientes sin asignar o vehículos sobrecargados), gracias al esquema de penalizaciones. El costo numérico solo nos dice cuánto vale la solución, \textbf{no si es legal}.
+
+El validador existe para responder con precisión: ``¿cumple esta solución \textit{todas} las restricciones del modelo LRP?'', señalando exactamente cuáles se violan y con qué severidad.
+
+\begin{nota}
+El validador es \textbf{independiente} de los algoritmos: recibe cualquier \texttt{EstadoLRP} y reporta su factibilidad. Se usa para verificar soluciones del ALNS, del MA$|$PM y de la fuerza bruta por igual.
+\end{nota}
+
+\subsection{Restricciones verificadas}
+
+El modelo formal del LRP de dos índices (Löffler 2023) tiene la siguiente función objetivo y restricciones:
+
+\begin{equation}
+\min Z = \sum_{i \in M} O_i \, y_i \;+\; F \cdot |\text{rutas activas}| \;+\; \sum_{(i,j)} c_{ij} \, x_{ij}
+\tag{Ec.\,1}
+\end{equation}
+
+El validador verifica seis grupos de restricciones, que llamamos R1--R6:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{>{\bfseries}cllp{5.2cm}}
+\toprule
+Código & Ecuación & Condición & ¿Qué comprueba? \\
+\midrule
+R1 & Ecs.\,2 \& 3 & $\sum_i w_{ij} = 1 \;\forall j \in N$ & Cada cliente aparece en \textbf{exactamente una} ruta (ni huérfano ni duplicado). \\
+R2 & Ec.\,4       & $w_{ij} \leq y_i \;\forall j,i$       & Cada cliente está asignado a \textbf{un solo} depósito. \\
+R3 & Ec.\,5       & $w_{ij} \leq y_i$                     & Solo se usan \textbf{depósitos abiertos}: no hay rutas saliendo de depósitos con $y_i=0$. \\
+R4 & Ec.\,6       & $\sum_j d_j \, w_{ij} \leq W_i \, y_i$ & La demanda total servida por el depósito $i$ no supera su \textbf{capacidad} $W_i$. \\
+R5 & Ec.\,11      & $\sum_j d_j \, x_{ij} \leq Q$          & Cada ruta de vehículo no supera la \textbf{capacidad} $Q$ del vehículo. \\
+R6 & (interna)    & \texttt{Ruta.id\_deposito == clave}    & El campo \texttt{id\_deposito} dentro del struct \texttt{Ruta} coincide con la clave del mapa de rutas (coherencia estructural). \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{nota}
+R2 es consecuencia directa de R1: si cada cliente aparece exactamente una vez en las rutas (R1 OK) y cada ruta pertenece a un único depósito (estructura del mapa), entonces la asignación uno-a-uno es automática. Por eso el validador marca R2 como $\text{OK} \Leftrightarrow \text{R1 OK}$.
+\end{nota}
+
+\subsection{Estructura del resultado}
+
+El validador devuelve un \texttt{ResultadoValidacion} con todos los detalles:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lp{8.5cm}}
+\toprule
+Campo & Contenido \\
+\midrule
+\texttt{factible} & \texttt{true} solo si R1--R6 se satisfacen todas. \\
+\texttt{r1\_ok} & \texttt{true} si no hay huérfanos ni duplicados. \\
+\texttt{clientes\_huerfanos} & IDs de clientes que no aparecen en ninguna ruta. \\
+\texttt{clientes\_duplicados} & IDs de clientes que aparecen en más de una ruta. \\
+\texttt{r3\_ok} & \texttt{true} si todas las rutas salen de depósitos abiertos. \\
+\texttt{rutas\_deposito\_cerrado} & \texttt{dep\_id} de cada depósito cerrado que tiene rutas. \\
+\texttt{r4\_ok} & \texttt{true} si ningún depósito supera su capacidad $W_i$. \\
+\texttt{violaciones\_deposito} & Lista de depósitos violadores con demanda y capacidad. \\
+\texttt{r5\_ok} & \texttt{true} si ninguna ruta supera la capacidad $Q$ del vehículo. \\
+\texttt{violaciones\_vehiculo} & Lista de rutas violadoras con carga y límite $Q$. \\
+\texttt{r6\_ok} & \texttt{true} si la estructura interna es coherente. \\
+\texttt{costo\_apertura} & $\sum O_i \, y_i$ — solo depósitos abiertos. \\
+\texttt{costo\_fijo\_rutas} & $F \times \text{número de rutas activas}$. \\
+\texttt{costo\_viaje} & $\sum c_{ij} x_{ij}$ — suma de todas las distancias recorridas. \\
+\texttt{costo\_total} & $Z$ calculado por \texttt{objective()} (incluye penalizaciones si hay violaciones). \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Pseudocódigo del validador}
+
+\begin{algorithm}[H]
+\caption{Validar solución LRP}
+\begin{algorithmic}[1]
+\Require EstadoLRP $e$ con rutas, depósitos abiertos y no\_asignados
+\Ensure ResultadoValidacion $res$
+
+\State $\text{freq}[c] \gets 0$ para todo cliente $c \in \{1,\ldots,n\}$
+\State $\text{deps\_abiertos} \gets$ conjunto de $e.\text{depositos\_abiertos}$
+
+\State \Comment{\textbf{R6: coherencia estructural} (verificación previa)}
+\For{cada $(dep\_id, \text{lista})$ en $e.\text{rutas}$}
+  \For{cada ruta $r$ en lista}
+    \If{$r.\text{id\_deposito} \neq dep\_id$}
+      \State $res.r6\_ok \gets \texttt{false}$
+    \EndIf
+  \EndFor
+\EndFor
+
+\State \Comment{\textbf{Recorrer rutas: R3, R5 y costos}}
+\For{cada $(dep\_id, \text{lista})$ en $e.\text{rutas}$}
+  \If{$dep\_id \notin \text{deps\_abiertos}$}
+    \State agregar $dep\_id$ a $res.\text{rutas\_deposito\_cerrado}$ \Comment{R3}
+  \EndIf
+  \For{cada ruta $r$ no vacía en lista}
+    \For{cada cliente $c$ en $r$}
+      \State $\text{freq}[c] \mathrel{+}= 1$
+    \EndFor
+    \State $\text{dem\_ruta} \gets \sum_{c \in r} d_c$
+    \If{$\text{dem\_ruta} > Q$}
+      \State registrar violación de vehículo \Comment{R5}
+    \EndIf
+    \State acumular $\text{costo\_viaje}$ de la ruta
+  \EndFor
+\EndFor
+
+\State \Comment{\textbf{R1: visita exacta}}
+\For{$c \in e.\text{no\_asignados}$}
+  \State agregar $c$ a $\text{clientes\_huerfanos}$
+\EndFor
+\For{cada cliente $c$}
+  \If{$\text{freq}[c] = 0$ y $c \notin \text{no\_asignados}$}
+    agregar a huérfanos
+  \ElsIf{$\text{freq}[c] > 1$}
+    agregar a duplicados
+  \EndIf
+\EndFor
+
+\State \Comment{\textbf{R4: capacidad de depósito}}
+\For{cada $dep\_id$ en $e.\text{depositos\_abiertos}$}
+  \State $\text{dem\_dep} \gets \sum_{\text{clientes de este depósito}} d_c$
+  \If{$\text{dem\_dep} > W_i$}
+    \State registrar violación de depósito
+  \EndIf
+  \State acumular $\text{costo\_apertura} \mathrel{+}= O_i$
+\EndFor
+
+\State $res.\text{factible} \gets \text{R1} \wedge \text{R2} \wedge \text{R3} \wedge \text{R4} \wedge \text{R5} \wedge \text{R6}$
+\State \Return $res$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Salida en consola}
+
+Cuando se llama con \texttt{imprimir=true}, el validador imprime un reporte estructurado:
+
+\begin{verbatim}
+========================================================
+      VALIDACIÓN DE RESTRICCIONES LRP
+========================================================
+Instancia: coord10-2-1  |  n=10  m=2  |  Q=140  F=100
+Depósitos abiertos: 11 12
+Rutas activas: 4
+--------------------------------------------------------
+R1 (Ecs. 2 & 3) — Cada cliente visitado exactamente una vez:
+  [OK]   Todos los 10 clientes aparecen exactamente una vez
+--------------------------------------------------------
+R2 (Ec. 4)  — Cada cliente asignado a exactamente un depósito:
+  [OK]   Asignación uno-a-uno garantizada
+--------------------------------------------------------
+R3 (Ec. 5)  — Asignación sólo a depósitos abiertos:
+  [OK]   Todas las rutas pertenecen a depósitos abiertos
+--------------------------------------------------------
+R4 (Ec. 6)  — Capacidad de depósito (sum d_j <= W_i):
+  [OK]   Dep 11: demanda=320.00 <= W=500
+  [OK]   Dep 12: demanda=280.00 <= W=500
+--------------------------------------------------------
+R5 (Ec. 11) — Capacidad de vehículo por ruta (sum d_j <= Q=140):
+  [OK]   Ruta 1 (Dep 11): carga=130.00 <= Q=140
+  [OK]   Ruta 2 (Dep 11): carga=120.00 <= Q=140
+  ...
+--------------------------------------------------------
+FUNCIÓN OBJETIVO Z (Ec. 1):
+  Apertura depósitos (sum O_i * y_i): 4000.00
+  Costo fijo rutas   (F * 4 rutas):   400.00
+  Costo de viaje     (sum c_ij*x_ij): 7176.00
+  Z (sin penalizaciones):              11576.00
+========================================================
+STATUS: SOLUCIÓN FACTIBLE  — Z = 11576.00
+========================================================
+\end{verbatim}
+
+Si hay violaciones, las líneas \texttt{[OK]} se reemplazan por \texttt{[FAIL]} y se muestra la diferencia numérica. Al final se lista qué restricciones fallaron.
+
+\subsection{¿Cómo se usa desde el código?}
+
+\begin{verbatim}
+// Validar la mejor solución del ALNS
+ResultadoValidacion rv = validar_solucion(resultado.mejor_estado);
+
+// Usar el resultado programáticamente
+if (!rv.factible) {
+    // Identificar exactamente cuál restricción falla
+    if (!rv.r4_ok)
+        for (auto &v : rv.violaciones_deposito)
+            // v.dep_id, v.demanda_total, v.capacidad
+}
+
+// Acceder al desglose del costo
+double z_real = rv.costo_apertura + rv.costo_fijo_rutas + rv.costo_viaje;
+\end{verbatim}
+
+\begin{pregunta}
+\textbf{¿El validador modifica la solución?} \\
+No. Recibe el \texttt{EstadoLRP} por referencia constante (\texttt{const EstadoLRP \&}). Solo lee, nunca escribe. Es completamente seguro llamarlo en cualquier punto sin alterar el estado del algoritmo.
+\end{pregunta}
+
+\begin{pregunta}
+\textbf{¿Por qué el costo del validador puede diferir del costo que reporta el algoritmo?} \\
+El validador desglosa el costo en tres partes limpias ($O_i + F \cdot \text{rutas} + \text{viaje}$). La función \texttt{objective()} del algoritmo añade \textbf{penalizaciones} cuando hay restricciones violadas (100\,000 por cliente sin asignar, 100\,000 por unidad de demanda excedida en depósito). Si la solución es factible, ambos valores coinciden exactamente. Si no es factible, el validador muestra ambos: el costo real y las penalizaciones.
+\end{pregunta}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Preguntas frecuentes del jurado (con respuestas)}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\begin{pregunta}
+¿Por qué el ALNS tiene una solución inicial tan simple (All-Open)?
+\end{pregunta}
+Porque el ALNS no necesita una buena solución inicial: sus operadores de destrucción/reparación y el SA explorarán y mejorarán desde cualquier punto de arranque. Una inicialización simple reduce el tiempo de setup. El operador \texttt{depot\_closing} es quien ``limpiará'' los depósitos redundantes durante la optimización.
+
+\begin{pregunta}
+¿Qué diferencia hay entre Greedy y Regret-2?
+\end{pregunta}
+Greedy es miope: siempre elige la inserción más barata en el momento. Regret-2 es previsor: inserta primero al cliente que más perdería si espera (el que tiene mayor diferencia entre su mejor y segunda mejor posición). En problemas donde los clientes ``compiten'' por las mismas posiciones, Regret-2 produce soluciones iniciales de mejor calidad.
+
+\begin{pregunta}
+¿Qué pasa si el umbral $\Delta$ llega a 1?
+\end{pregunta}
+Con $\Delta=1$, prácticamente todo individuo es aceptado (cualquier diferencia de BPD $\geq 1$ basta). El algoritmo entra en modo de ``exploración masiva''. Esto ocurre cuando la población se ha vuelto muy homogénea y el sistema necesita desesperadamente diversidad para no estancarse.
+
+\begin{pregunta}
+¿Por qué el Split usa Bellman-Ford y no Dijkstra?
+\end{pregunta}
+El grafo auxiliar es un DAG (grafo acíclico dirigido) con pesos no negativos. Bellman-Ford funciona para cualquier tipo de grafo, pero en un DAG con pesos no negativos se puede usar simplemente \textbf{programación dinámica en orden topológico} (que es lo que hace el Split). Dijkstra también funcionaría. Lo importante es que el orden topológico del DAG es simplemente el orden numérico de los nodos $0, 1, \ldots, n$, lo que hace al algoritmo muy eficiente.
+
+\begin{pregunta}
+¿Por qué el MA$|$PM no garantiza el óptimo global?
+\end{pregunta}
+Porque: (1) el cruce OX y la búsqueda local son heurísticos, no sistemáticos; (2) la gestión de población con BPD puede rechazar individuos buenos por ser similares a otros ya en la población; (3) no hay mecanismo de ``vuelta atrás'' como en branch-and-bound. Sin embargo, en la práctica, para instancias de hasta 200 clientes, MA$|$PM obtiene resultados muy próximos al óptimo (gaps $<2\%$).
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Ejemplo paso a paso: los tres algoritmos sobre la misma instancia}
+% ══════════════════════════════════════════════════════════════════════════════
+
+En esta sección resolvemos \textbf{exactamente la misma instancia} con Fuerza Bruta, ALNS y MA$|$PM, trazando cada paso para ver en qué difieren en enfoque, esfuerzo computacional y calidad de solución.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection*{Instancia de ejemplo}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Todos los nodos están sobre el eje $x$; las distancias son diferencias absolutas.
+
+\begin{center}
+\begin{tabular}{lccl}
+\toprule
+Nodo  & Posición $x$ & Tipo     & Demanda \\
+\midrule
+$D_1$ & 0            & Depósito & ---     \\
+$D_2$ & 6            & Depósito & ---     \\
+$C_1$ & 1            & Cliente  & 1       \\
+$C_2$ & 3            & Cliente  & 1       \\
+$C_3$ & 5            & Cliente  & 1       \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Parámetros:} $n=3$ clientes, $m=2$ depósitos, capacidad de vehículo $Q=2$, costo fijo de ruta $F=2$, costo de apertura de depósito $O=3$ (igual para ambos).
+
+\medskip
+\textbf{Matriz de distancias} $d[i][j] = |x_i - x_j|$:
+
+\begin{center}
+\begin{tabular}{c|ccccc}
+\toprule
+      & $D_1$ & $C_1$ & $C_2$ & $C_3$ & $D_2$ \\
+\midrule
+$D_1$ & 0 & 1 & 3 & 5 & 6 \\
+$C_1$ & 1 & 0 & 2 & 4 & 5 \\
+$C_2$ & 3 & 2 & 0 & 2 & 3 \\
+$C_3$ & 5 & 4 & 2 & 0 & 1 \\
+$D_2$ & 6 & 5 & 3 & 1 & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{nota}
+La \textbf{solución óptima global} tiene costo \textbf{18}: abrir $D_1$ y $D_2$; ruta $D_1 \!\to\! C_1 \!\to\! D_1$ (coste $1+1+F=4$) y ruta $D_2 \!\to\! C_2 \!\to\! C_3 \!\to\! D_2$ (coste $3+2+1+F=8$). Total $= O_1 + O_2 + 4 + 8 = 18$.
+\end{nota}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection*{Algoritmo 1 — Fuerza Bruta (solución exacta)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+La fuerza bruta recorre los $2^m - 1 = 3$ subconjuntos no vacíos de depósitos. Para cada subconjunto abre esos depósitos y calcula el costo mínimo de servir a todos los clientes usando dos DPs anidados.
+
+\subsubsection*{Caso A — Solo $D_1$ abierto}
+
+\textbf{Paso 1: Held-Karp para cada ruta factible} (demanda $\leq Q=2$):
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Subconjunto de ruta & Mejor orden (Held-Karp) & Coste viaje $+\,F$ \\
+\midrule
+$\{C_1\}$       & $D_1\!\to\!C_1\!\to\!D_1$              & $1+1+2=4$   \\
+$\{C_2\}$       & $D_1\!\to\!C_2\!\to\!D_1$              & $3+3+2=8$   \\
+$\{C_3\}$       & $D_1\!\to\!C_3\!\to\!D_1$              & $5+5+2=12$  \\
+$\{C_1,C_2\}$   & $D_1\!\to\!C_1\!\to\!C_2\!\to\!D_1$   & $1+2+3+2=8$ \\
+$\{C_1,C_3\}$   & $D_1\!\to\!C_1\!\to\!C_3\!\to\!D_1$   & $1+4+5+2=12$\\
+$\{C_2,C_3\}$   & $D_1\!\to\!C_2\!\to\!C_3\!\to\!D_1$   & $3+2+5+2=12$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+($\{C_1,C_2,C_3\}$ tiene demanda 3 $> Q=2$, se descarta.)
+
+\textbf{Paso 2: Set-Cover DP} (máscara: $C_1=\text{bit\,0}$, $C_2=\text{bit\,1}$, $C_3=\text{bit\,2}$):
+
+\begin{center}
+\begin{tabular}{clp{7.5cm}}
+\toprule
+Máscara & Subconjunto & $dp[\text{máscara}]$ y razonamiento \\
+\midrule
+$000$ & $\emptyset$              & 0 \\
+$001$ & $\{C_1\}$               & $0+4=4$ \\
+$010$ & $\{C_2\}$               & $0+8=8$ \\
+$100$ & $\{C_3\}$               & $0+12=12$ \\
+$011$ & $\{C_1,C_2\}$           & $\min(0+8,\ 4+8,\ 8+4)=8$
+                                  \newline mejor: ruta $\{C_1,C_2\}$ directa \\
+$101$ & $\{C_1,C_3\}$           & $\min(0+12,\ 4+12,\ 12+4)=12$ \\
+$110$ & $\{C_2,C_3\}$           & $\min(0+12,\ 8+12,\ 12+8)=12$ \\
+$111$ & $\{C_1,C_2,C_3\}$       & $\min(\underbrace{dp[110]+4}_{=16},\ dp[101]+8,\ dp[011]+12)=16$
+                                  \newline mejor: ruta $\{C_3\}$ sobre $dp[011]=8$, o bien ruta $\{C_1\}$ sobre $dp[110]=12$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Costo total caso A}: $O(D_1) + dp[111] = 3 + 16 = \mathbf{19}$.
+Partición óptima: $\{C_1,C_2\}$ (ruta coste 8) $+$ $\{C_3\}$ (ruta coste 8).
+
+\subsubsection*{Caso B — Solo $D_2$ abierto}
+
+Held-Karp desde $D_2$:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Subconjunto & Mejor orden & Coste viaje $+\,F$ \\
+\midrule
+$\{C_1\}$     & $D_2\!\to\!C_1\!\to\!D_2$              & $5+5+2=12$ \\
+$\{C_2\}$     & $D_2\!\to\!C_2\!\to\!D_2$              & $3+3+2=8$  \\
+$\{C_3\}$     & $D_2\!\to\!C_3\!\to\!D_2$              & $1+1+2=4$  \\
+$\{C_1,C_2\}$ & $D_2\!\to\!C_2\!\to\!C_1\!\to\!D_2$   & $3+2+5+2=12$ \\
+$\{C_1,C_3\}$ & $D_2\!\to\!C_3\!\to\!C_1\!\to\!D_2$   & $1+4+5+2=12$ \\
+$\{C_2,C_3\}$ & $D_2\!\to\!C_3\!\to\!C_2\!\to\!D_2$   & $1+2+3+2=8$  \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Set-Cover DP (análogo al caso A, valores cambian por los costos de ruta desde $D_2$):
+$dp[111]=16$, logrando la partición $\{C_1,C_2\}$ (costo 12) $+$ $\{C_3\}$ (costo 4).
+
+\textbf{Costo total caso B}: $O(D_2) + 16 = 3 + 16 = \mathbf{19}$.
+
+\subsubsection*{Caso C — Ambos depósitos $\{D_1, D_2\}$}
+
+Se prueban todas las formas de asignar los 3 clientes entre los dos depósitos ($2^3-2=6$ asignaciones no degeneradas):
+
+\begin{center}
+\begin{tabular}{lllr}
+\toprule
+Asignación & Rutas $D_1$  & Rutas $D_2$  & Costo total \\
+\midrule
+$D_1:\{C_1\},\ D_2:\{C_2,C_3\}$       & $4$  & $8$  & $3+3+4+8=\mathbf{18}$ \\
+$D_1:\{C_2\},\ D_2:\{C_1,C_3\}$       & $8$  & $12$ & $3+3+8+12=26$        \\
+$D_1:\{C_3\},\ D_2:\{C_1,C_2\}$       & $12$ & $12$ & $3+3+12+12=30$       \\
+$D_1:\{C_1,C_2\},\ D_2:\{C_3\}$       & $8$  & $4$  & $3+3+8+4=\mathbf{18}$\\
+$D_1:\{C_1,C_3\},\ D_2:\{C_2\}$       & $12$ & $8$  & $3+3+12+8=26$        \\
+$D_1:\{C_2,C_3\},\ D_2:\{C_1\}$       & $12$ & $12$ & $3+3+12+12=30$       \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Costo total caso C}: mínimo = $\mathbf{18}$.
+
+\subsubsection*{Resultado de la Fuerza Bruta}
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+Caso & Costo mínimo \\
+\midrule
+Solo $D_1$       & 19 \\
+Solo $D_2$       & 19 \\
+$D_1$ y $D_2$    & \textbf{18} ← óptimo global \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Solución óptima confirmada}: abrir $D_1$ y $D_2$;
+ruta $D_1\!\to\!C_1\!\to\!D_1$ (coste 4) y ruta $D_2\!\to\!C_2\!\to\!C_3\!\to\!D_2$ (coste 8).
+Costo total = \textbf{18}.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection*{Algoritmo 2 — ALNS}
+% ─────────────────────────────────────────────────────────────────────────────
+
+El ALNS arranca con todos los depósitos abiertos y una solución greedy, luego aplica destrucción/reparación guiada por Simulated Annealing.
+
+\subsubsection*{Solución inicial $S_0$}
+
+Para ilustrar la mejora, asumimos que la asignación greedy inicial coloca $C_3$ en $D_1$ (por ejemplo, por orden de procesamiento):
+
+\begin{itemize}[noitemsep]
+  \item $D_1$ abierto, ruta $[\,C_1, C_3\,]$: $D_1\!\to\!C_1\!\to\!C_3\!\to\!D_1 + F = 1+4+5+2 = 12$
+  \item $D_2$ abierto, ruta $[\,C_2\,]$:\ \ $D_2\!\to\!C_2\!\to\!D_2 + F = 3+3+2 = 8$
+\end{itemize}
+$\text{Costo}(S_0) = O_1 + O_2 + 12 + 8 = 3+3+12+8 = \mathbf{26}$
+
+Parámetros SA: $T_0=1000$, $\alpha=0.95$. Mejor solución guardada: $S^* = S_0$, costo 26.
+
+\subsubsection*{Iteración 1: \texttt{random\_removal} + \texttt{greedy\_repair}}
+
+\textbf{Destrucción} — se elige aleatoriamente $q=1$ cliente a eliminar; sale $C_3$.
+\begin{itemize}[noitemsep]
+  \item Estado temporal: $D_1:[\,C_1\,]$,\ $D_2:[\,C_2\,]$,\ $\textit{no\_asig}=\{C_3\}$
+\end{itemize}
+
+\textbf{Reparación} — \texttt{greedy\_repair} evalúa el delta de insertar $C_3$ en cada posición posible:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Opción de inserción & Costo incremental $\Delta$ & Detalle \\
+\midrule
+Insertar $C_3$ tras $C_1$ en $D_1$ & $+8$ & Ruta pasa de coste 4 a 12 \\
+Insertar $C_3$ tras $C_2$ en $D_2$ & $\mathbf{0}$ & Viaje $D_2\!\to\!C_2\!\to\!C_3\!\to\!D_2 = 3+2+1 = 6$, igual que $3+3=6$ \\
+Nueva ruta $C_3$ solo en $D_2$      & $+4$ & $D_2\!\to\!C_3\!\to\!D_2+F=4$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La inserción con $\Delta=0$ (tras $C_2$ en $D_2$) es la más barata. Se aplica.
+
+$S_1$: $D_1:[\,C_1\,]$,\ $D_2:[\,C_2, C_3\,]$
+$\text{Costo}(S_1) = 3+3+4+8 = \mathbf{18}$
+
+$\Delta E = 18 - 26 = -8 < 0$ $\Rightarrow$ aceptación garantizada (mejora).
+$S_1$ pasa a ser la nueva mejor solución $S^*$. Se incrementan los pesos de \texttt{random\_removal} y \texttt{greedy\_repair} con $\sigma_1$ (recompensa por nuevo mejor).
+
+\subsubsection*{Iteración 2: \texttt{worst\_removal} + \texttt{regret2\_repair}}
+
+\textbf{Destrucción} — \texttt{worst\_removal} elimina el cliente que más contribuye al costo total.
+Ruta $D_1:[\,C_1\,]$ tiene coste 4 por 1 cliente; ruta $D_2:[\,C_2,C_3\,]$ tiene coste 8 por 2 clientes.
+Ambas cuestan 4 por cliente; por desempate se elige $C_1$.
+
+Estado temporal: $D_1:[\,\,]$,\ $D_2:[\,C_2,C_3\,]$,\ $\textit{no\_asig}=\{C_1\}$.
+
+\textbf{Reparación} — \texttt{regret2\_repair} calcula el arrepentimiento de $C_1$:
+\begin{itemize}[noitemsep]
+  \item Mejor inserción: nueva ruta $C_1$ en $D_1$ ($D_1\!\to\!C_1\!\to\!D_1+F=4$), $\Delta_1=+4$.
+  \item Segunda mejor: nueva ruta $C_1$ en $D_2$ ($D_2\!\to\!C_1\!\to\!D_2+F=12$), $\Delta_2=+12$.
+    (No cabe en la ruta $[\,C_2,C_3\,]$ porque $Q=2$ está lleno.)
+  \item Arrepentimiento $= \Delta_2 - \Delta_1 = 8$. Alto $\Rightarrow$ insertar inmediatamente.
+\end{itemize}
+
+$S_2 = S_1$: $D_1:[\,C_1\,]$,\ $D_2:[\,C_2,C_3\,]$, costo $\mathbf{18}$.
+$\Delta E = 0$. Aceptado. Pesos de \texttt{worst\_removal} y \texttt{regret2\_repair} reciben $\sigma_3$.
+
+\subsubsection*{Iteración 3: \texttt{depot\_closing} (operador de cierre)}
+
+El operador intenta cerrar un depósito para ahorrar $O$.
+
+\textbf{Intento de cerrar $D_1$}: $D_1$ tiene solo la ruta $[\,C_1\,]$.
+\begin{itemize}[noitemsep]
+  \item Ahorro por cierre: $-O(D_1) - \text{ruta}(C_1) = -3 - 4 = -7$.
+  \item $C_1$ debe reasignarse a $D_2$. La ruta $[\,C_2,C_3\,]$ está llena ($Q=2$) $\Rightarrow$ nueva ruta en $D_2$.
+  \item Costo nueva ruta: $D_2\!\to\!C_1\!\to\!D_2 + F = 5+5+2 = 12$.
+  \item $\Delta E = -7 + 12 = +5$.
+\end{itemize}
+
+$S_3$: solo $D_2$ abierto, rutas $[\,C_2,C_3\,]$ y $[\,C_1\,]$. Costo $= 3+8+12 = 23$.
+
+Temperatura actual $T_3 = 1000\cdot0.95^2 \approx 902$.
+$P(\text{aceptar}) = e^{-5/902} \approx 0.994$. Casi siempre aceptado en SA caliente $\Rightarrow$ exploración.
+
+\begin{nota}
+Una vez que $D_1$ se cierra, las reparaciones \texttt{greedy\_repair} y \texttt{regret2\_repair} \textbf{solo pueden usar depósitos abiertos}. Si la solución queda atrapada en ``$D_2$ único'', el costo mínimo alcanzable es 19 (no 18). Esta es la limitación conocida del ALNS en LRP: puede cerrar depósitos pero no reabrirlos.
+
+En la práctica, si $T$ todavía es alta, el SA puede aceptar esta exploración y el algoritmo escapa más tarde gracias a otros operadores. La mejor solución \textit{recordada} $S^* = 18$ nunca se pierde aunque las iteraciones exploren peor.
+\end{nota}
+
+\subsubsection*{Resultado del ALNS}
+
+Tras enfriamiento completo ($T \to 0$), el algoritmo retorna $S^* = $ \{$D_1:[\,C_1\,]$, $D_2:[\,C_2,C_3\,]$\}, costo \textbf{18}.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection*{Algoritmo 3 — MA$|$PM (Algoritmo Memético)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+El MA$|$PM trabaja con una \textbf{población de cromosomas}, cada uno formado por el estado de depósitos (DS) y un tour gigante (CS).
+
+\subsubsection*{Población inicial (2 cromosomas para este ejemplo)}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+Cromosoma & DS & CS & Descripción \\
+\midrule
+Chr1 & $[1,0]$ & $[C_2, C_3, C_1]$ & $D_1$ abierto; $D_2$ cerrado \\
+Chr2 & $[0,1]$ & $[C_1, C_2, C_3]$ & $D_1$ cerrado; $D_2$ abierto \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+DS$[i]=1$ significa que el depósito $i$ está habilitado.
+CS es el \textit{tour gigante}: la permutación de clientes sin indicar rutas (el Split las determinará).
+
+\subsubsection*{Split de Chr1 — DS$=[1,0]$, CS$=[C_2,C_3,C_1]$}
+
+Solo $D_1$ disponible. Calculamos $dp[0..3]$ donde $dp[k]$ = costo mínimo de servir los primeros $k$ clientes del tour.
+$dp[0]=0$. Para cada posición inicial $i$ probamos segmentos $[i{+}1\,{..}\,j]$ con demanda total $\leq Q=2$.
+
+\begin{center}
+\begin{tabular}{cclrr}
+\toprule
+Segmento & Clientes & Mejor depósito y ruta & Costo ruta & $dp$ actualizado \\
+\midrule
+$[1..1]$ & $\{C_2\}$     & $D_1\!\to\!C_2\!\to\!D_1+F=3+3+2$         & 8  & $dp[1]=0+8=8$ \\
+$[1..2]$ & $\{C_2,C_3\}$ & $D_1\!\to\!C_2\!\to\!C_3\!\to\!D_1+F=3+2+5+2$ & 12 & $dp[2]=0+12=12$ \\
+$[2..2]$ & $\{C_3\}$     & $D_1\!\to\!C_3\!\to\!D_1+F=5+5+2$         & 12 & $dp[2]=\min(12,\,8+12)=12$ (sin cambio) \\
+$[2..3]$ & $\{C_3,C_1\}$ & $D_1\!\to\!C_3\!\to\!C_1\!\to\!D_1+F=5+4+1+2$ & 12 & $dp[3]=0+\cdots\Rightarrow8+12=20$ \\
+$[3..3]$ & $\{C_1\}$     & $D_1\!\to\!C_1\!\to\!D_1+F=1+1+2$         & 4  & $dp[3]=\min(20,\,12+4)=\mathbf{16}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Reconstrucción hacia atrás:
+$dp[3]=16$ desde $dp[2]+4$ $\Rightarrow$ segmento $[3..3]=\{C_1\}$ en $D_1$.
+$dp[2]=12$ desde $dp[0]+12$ $\Rightarrow$ segmento $[1..2]=\{C_2,C_3\}$ en $D_1$.
+
+\textbf{Rutas Chr1}: $D_1\!\to\!C_2\!\to\!C_3\!\to\!D_1$ (coste 12) y $D_1\!\to\!C_1\!\to\!D_1$ (coste 4).
+$\text{Costo total} = O(D_1) + 12 + 4 = 3 + 16 = \mathbf{19}$.
+
+\subsubsection*{Split de Chr2 — DS$=[0,1]$, CS$=[C_1,C_2,C_3]$}
+
+Solo $D_2$ disponible.
+
+\begin{center}
+\begin{tabular}{cclrr}
+\toprule
+Segmento & Clientes & Mejor depósito y ruta & Costo ruta & $dp$ actualizado \\
+\midrule
+$[1..1]$ & $\{C_1\}$     & $D_2\!\to\!C_1\!\to\!D_2+F=5+5+2$           & 12 & $dp[1]=12$ \\
+$[1..2]$ & $\{C_1,C_2\}$ & $D_2\!\to\!C_1\!\to\!C_2\!\to\!D_2+F=5+2+3+2$& 12 & $dp[2]=0+12=12$ \\
+$[2..2]$ & $\{C_2\}$     & $D_2\!\to\!C_2\!\to\!D_2+F=3+3+2$           & 8  & $dp[2]=\min(12,\,12+8)=12$ (sin cambio) \\
+$[2..3]$ & $\{C_2,C_3\}$ & $D_2\!\to\!C_2\!\to\!C_3\!\to\!D_2+F=3+2+1+2$& 8  & $dp[3]=12+8=20$ \\
+$[3..3]$ & $\{C_3\}$     & $D_2\!\to\!C_3\!\to\!D_2+F=1+1+2$           & 4  & $dp[3]=\min(20,\,12+4)=\mathbf{16}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Rutas Chr2}: $D_2\!\to\!C_1\!\to\!C_2\!\to\!D_2$ (coste 12) y $D_2\!\to\!C_3\!\to\!D_2$ (coste 4).
+$\text{Costo total} = O(D_2) + 12 + 4 = 3 + 16 = \mathbf{19}$.
+
+\subsubsection*{Búsqueda local LS1 sobre Chr1}
+
+Estado: $D_1:\{C_2,C_3\}$, $\{C_1\}$. Costo = 19. Intentamos or-opt (mover 1 cliente):
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Movimiento & Nuevas rutas & Costo total \\
+\midrule
+Mover $C_2$ de $\{C_2,C_3\}$ a $\{C_1\}$ & $\{C_3\}$, $\{C_1,C_2\}$ & $3+12+8=23$ \\
+Mover $C_3$ de $\{C_2,C_3\}$ a $\{C_1\}$ & $\{C_2\}$, $\{C_1,C_3\}$ & $3+8+12=23$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Ningún movimiento mejora. \textbf{Chr1 es localmente óptimo en 19.}
+
+\subsubsection*{Búsqueda local LS1 sobre Chr2}
+
+Estado: $D_2:\{C_1,C_2\}$, $\{C_3\}$. Análisis simétrico. \textbf{Chr2 es localmente óptimo en 19.}
+
+\subsubsection*{Cruce OX entre Chr1 y Chr2}
+
+Seleccionamos Chr1 y Chr2 como padres.
+
+\textbf{Cruce de DS} (uniforme): tomamos $D_1$ de Chr1 ($=1$) y $D_2$ de Chr2 ($=1$).
+$\Rightarrow$ DS$_{\text{hijo}} = [1,1]$ (ambos depósitos abiertos).
+
+\textbf{Cruce OX de CS}, punto de corte en posición $[0\,..\,0]$:
+\begin{enumerate}[noitemsep]
+  \item Copiar $P_1[0] = C_2$ al hijo en posición 0.
+  \item Completar con el orden de $P_2 = [C_1,\mathbf{C_2},C_3]$, omitiendo $C_2$: quedan $[C_1, C_3]$.
+  \item Hijo CS $= [C_2,\, C_1,\, C_3]$.
+\end{enumerate}
+
+\subsubsection*{Split del Hijo — DS$=[1,1]$, CS$=[C_2,C_1,C_3]$}
+
+Ambos depósitos disponibles. En cada segmento elegimos el depósito de menor costo.
+
+\begin{center}
+\begin{tabular}{cclrr}
+\toprule
+Segmento & Clientes & Mejor depósito y ruta & Costo ruta & $dp$ actualizado \\
+\midrule
+$[1..1]$ & $\{C_2\}$     & $D_1$: $3+3+2=8$; $D_2$: $3+3+2=8$ (empate)& 8  & $dp[1]=8$ \\
+$[1..2]$ & $\{C_2,C_1\}$ & $D_1$: $3+2+1+2=8$; $D_2$: $3+2+5+2=12$    & 8  & $dp[2]=0+8=8$ \\
+$[2..2]$ & $\{C_1\}$     & $D_1$: $1+1+2=4$; $D_2$: $5+5+2=12$         & 4  & $dp[2]=\min(8,\,8+4)=8$ (sin cambio) \\
+$[2..3]$ & $\{C_1,C_3\}$ & $D_1$: $1+4+5+2=12$; $D_2$: $5+4+1+2=12$   & 12 & $dp[3]=8+12=20$ \\
+$[3..3]$ & $\{C_3\}$     & $D_1$: $5+5+2=12$; \textbf{$D_2$}: $1+1+2=4$& 4  & $dp[3]=\min(20,\,8+4)=\mathbf{12}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Reconstrucción:
+$dp[3]=12$ desde $dp[2]+4$ $\Rightarrow$ segmento $[3..3]=\{C_3\}$ en $D_2$.
+$dp[2]=8$ desde $dp[0]+8$ $\Rightarrow$ segmento $[1..2]=\{C_2,C_1\}$ en $D_1$.
+
+\textbf{Rutas del hijo}: $D_1\!\to\!C_2\!\to\!C_1\!\to\!D_1 + F$ (coste 8) y $D_2\!\to\!C_3\!\to\!D_2 + F$ (coste 4).
+$\text{Costo total} = O(D_1)+O(D_2)+8+4 = 3+3+8+4 = \mathbf{18}$ \checkmark
+
+\subsubsection*{Verificación BPD (gestión de diversidad)}
+
+El hijo solo se incorpora a la población si es suficientemente diferente de \textbf{todos} los individuos existentes. La distancia BPD cuenta los pares adyacentes que difieren.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Individuo & Rutas & Pares adyacentes (clave simétrica) \\
+\midrule
+Chr1  & $D_1:[\,C_2,C_3\,]$, $[\,C_1\,]$ & $\{(C_2,C_3)\}$ \\
+Chr2  & $D_2:[\,C_1,C_2\,]$, $[\,C_3\,]$ & $\{(C_1,C_2)\}$ \\
+Hijo  & $D_1:[\,C_2,C_1\,]$, $D_2:[\,C_3\,]$ & $\{(C_1,C_2)\}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$\text{BPD}(\text{Hijo},\ \text{Chr2}) = |\{(C_1,C_2)\} \;\triangle\; \{(C_1,C_2)\}| = 0$
+
+Como $\text{BPD}=0 < \Delta=1$ (umbral actual), \textbf{el hijo es rechazado} por ser demasiado similar a Chr2.
+\texttt{NbNoAdd} $\mathrel{+}= 1$.
+
+Cuando \texttt{NbNoAdd} supere \texttt{MaxNbNoAdd}, el umbral $\Delta$ descenderá a 0 y el hijo (costo=18) será aceptado en el siguiente intento, reemplazando al individuo de mayor costo en la población.
+
+\begin{nota}
+Este ejemplo ilustra un caso curioso: el MA$|$PM puede \textit{descubrir} la solución óptima (costo 18) en el cruce pero \textit{rechazarla temporalmente} por ser muy similar a un individuo existente. El mecanismo BPD prioriza la diversidad; la solución óptima entra en cuanto baja el umbral. En instancias reales con $n \geq 10$, el espacio de pares es mucho más rico y los rechazos por BPD son menos frecuentes.
+\end{nota}
+
+\subsubsection*{Resultado del MA$|$PM}
+
+Tras la incorporación del hijo (cuando $\Delta=0$), la población contiene un individuo con costo \textbf{18}, que coincide con el óptimo global encontrado por la Fuerza Bruta.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection*{Resumen comparativo de los tres algoritmos en esta instancia}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{center}
+\begin{tabular}{lcccl}
+\toprule
+Algoritmo & Costo final & Solución óptima & Iteraciones trazadas & Observación \\
+\midrule
+Fuerza Bruta & 18 & Sí (garantizado) & 3 subconjuntos (18 asignaciones) & Exacto, exponencial \\
+ALNS         & 18 & Sí (en este caso)& 3 iter. mostradas   & Puede atascarse si cierra $D_1$ \\
+MA$|$PM      & 18 & Sí (tras BPD)    & 1 generación         & BPD retrasó pero no impidió el óptimo \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Los tres algoritmos convergen al óptimo en esta instancia pequeña.
+La diferencia emerge en instancias grandes ($n \geq 50$): la Fuerza Bruta se vuelve intraterable, mientras que ALNS y MA$|$PM encuentran soluciones de alta calidad en tiempo razonable.
+
+\end{document}
