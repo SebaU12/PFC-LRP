@@ -8,6 +8,9 @@
 /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/test_solucion_inicial.dir
 /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/test_operadores.dir
 /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/test_alns.dir
+/home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/brute_force_lib.dir
+/home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/validate.dir
+/home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/test_validador.dir
 /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/test_split.dir
 /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/test_operadores_ga.dir
 /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/test_local_search.dir

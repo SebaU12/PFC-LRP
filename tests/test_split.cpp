@@ -145,13 +145,13 @@ static void test_split_vs_greedy(const InstanciaLRP &inst, const Matriz &mat,
   for (const auto &[dep_id, lista] : sol.rutas) {
     int idx_dep = dep_id - 1;
     for (const auto &r : lista) {
-      if (r.empty())
+      if (r.clientes.empty())
         continue;
       routing_greedy += inst.F;
-      routing_greedy += mat[idx_dep][r.front() - 1];
-      for (int i = 0; i + 1 < (int)r.size(); ++i)
-        routing_greedy += mat[r[i] - 1][r[i + 1] - 1];
-      routing_greedy += mat[r.back() - 1][idx_dep];
+      routing_greedy += mat[idx_dep][r.clientes.front() - 1];
+      for (int i = 0; i + 1 < (int)r.clientes.size(); ++i)
+        routing_greedy += mat[r.clientes[i] - 1][r.clientes[i + 1] - 1];
+      routing_greedy += mat[r.clientes.back() - 1][idx_dep];
     }
   }
 
@@ -164,7 +164,7 @@ static void test_split_vs_greedy(const InstanciaLRP &inst, const Matriz &mat,
 
     std::vector<int> orden;
     for (const auto &r : it->second)
-      for (int c : r)
+      for (int c : r.clientes)
         orden.push_back(c);
     if (orden.empty())
       continue;
@@ -216,7 +216,8 @@ static void test_roundtrip(const InstanciaLRP &inst, const Matriz &mat,
     if (crom.DS[i] == 0)
       continue;
     int dep_id = n + i + 1;
-    rutas_cache[dep_id] = resultados[i].rutas;
+    for (const auto &rv : resultados[i].rutas)
+      rutas_cache[dep_id].push_back(Ruta(dep_id, rv));
   }
 
   EstadoLRP reconstruido = cromosoma_a_estado(crom, rutas_cache, mat, inst);
@@ -228,7 +229,7 @@ static void test_roundtrip(const InstanciaLRP &inst, const Matriz &mat,
   int total = 0;
   for (const auto &[dep, lista] : reconstruido.rutas)
     for (const auto &r : lista)
-      for (int c : r) {
+      for (int c : r.clientes) {
         en_rutas.insert(c);
         ++total;
       }

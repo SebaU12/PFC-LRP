@@ -48,10 +48,10 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = /nix/store/ykj8mb3cq8yhxbalh0v5hrav3l0fal4d-home-manager-path/bin/cmake
+CMAKE_COMMAND = /nix/store/22l52811n9fw9wam345sqpcxqvlgrk73-home-manager-path/bin/cmake
 
 # The command to remove a file.
-RM = /nix/store/ykj8mb3cq8yhxbalh0v5hrav3l0fal4d-home-manager-path/bin/cmake -E rm -f
+RM = /nix/store/22l52811n9fw9wam345sqpcxqvlgrk73-home-manager-path/bin/cmake -E rm -f
 
 # Escaping for special characters.
 EQUALS = =
@@ -68,7 +68,7 @@ CMAKE_BINARY_DIR = /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/b
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "No interactive CMake dialog available..."
-	/nix/store/ykj8mb3cq8yhxbalh0v5hrav3l0fal4d-home-manager-path/bin/cmake -E echo No\ interactive\ CMake\ dialog\ available.
+	/nix/store/22l52811n9fw9wam345sqpcxqvlgrk73-home-manager-path/bin/cmake -E echo No\ interactive\ CMake\ dialog\ available.
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -78,7 +78,7 @@ edit_cache/fast: edit_cache
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --cyan "Running CMake to regenerate build system..."
-	/nix/store/ykj8mb3cq8yhxbalh0v5hrav3l0fal4d-home-manager-path/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/nix/store/22l52811n9fw9wam345sqpcxqvlgrk73-home-manager-path/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
@@ -245,6 +245,45 @@ test_alns: cmake_check_build_system
 test_alns/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_alns.dir/build.make CMakeFiles/test_alns.dir/build
 .PHONY : test_alns/fast
+
+#=============================================================================
+# Target rules for targets named brute_force_lib
+
+# Build rule for target.
+brute_force_lib: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 brute_force_lib
+.PHONY : brute_force_lib
+
+# fast build rule for target.
+brute_force_lib/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brute_force_lib.dir/build.make CMakeFiles/brute_force_lib.dir/build
+.PHONY : brute_force_lib/fast
+
+#=============================================================================
+# Target rules for targets named validate
+
+# Build rule for target.
+validate: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 validate
+.PHONY : validate
+
+# fast build rule for target.
+validate/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/validate.dir/build.make CMakeFiles/validate.dir/build
+.PHONY : validate/fast
+
+#=============================================================================
+# Target rules for targets named test_validador
+
+# Build rule for target.
+test_validador: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_validador
+.PHONY : test_validador
+
+# fast build rule for target.
+test_validador/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_validador.dir/build.make CMakeFiles/test_validador.dir/build
+.PHONY : test_validador/fast
 
 #=============================================================================
 # Target rules for targets named test_split
@@ -430,6 +469,30 @@ src/alns/solver.s: src/alns/solver.cpp.s
 src/alns/solver.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/alns_lib.dir/build.make CMakeFiles/alns_lib.dir/src/alns/solver.cpp.s
 .PHONY : src/alns/solver.cpp.s
+
+src/brute_force/solver.o: src/brute_force/solver.cpp.o
+.PHONY : src/brute_force/solver.o
+
+# target to build an object file
+src/brute_force/solver.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brute_force_lib.dir/build.make CMakeFiles/brute_force_lib.dir/src/brute_force/solver.cpp.o
+.PHONY : src/brute_force/solver.cpp.o
+
+src/brute_force/solver.i: src/brute_force/solver.cpp.i
+.PHONY : src/brute_force/solver.i
+
+# target to preprocess a source file
+src/brute_force/solver.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brute_force_lib.dir/build.make CMakeFiles/brute_force_lib.dir/src/brute_force/solver.cpp.i
+.PHONY : src/brute_force/solver.cpp.i
+
+src/brute_force/solver.s: src/brute_force/solver.cpp.s
+.PHONY : src/brute_force/solver.s
+
+# target to generate assembly for a file
+src/brute_force/solver.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/brute_force_lib.dir/build.make CMakeFiles/brute_force_lib.dir/src/brute_force/solver.cpp.s
+.PHONY : src/brute_force/solver.cpp.s
 
 src/distancia.o: src/distancia.cpp.o
 .PHONY : src/distancia.o
@@ -719,6 +782,30 @@ src/solucion_inicial.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/lrp_core.dir/build.make CMakeFiles/lrp_core.dir/src/solucion_inicial.cpp.s
 .PHONY : src/solucion_inicial.cpp.s
 
+src/validador.o: src/validador.cpp.o
+.PHONY : src/validador.o
+
+# target to build an object file
+src/validador.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lrp_core.dir/build.make CMakeFiles/lrp_core.dir/src/validador.cpp.o
+.PHONY : src/validador.cpp.o
+
+src/validador.i: src/validador.cpp.i
+.PHONY : src/validador.i
+
+# target to preprocess a source file
+src/validador.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lrp_core.dir/build.make CMakeFiles/lrp_core.dir/src/validador.cpp.i
+.PHONY : src/validador.cpp.i
+
+src/validador.s: src/validador.cpp.s
+.PHONY : src/validador.s
+
+# target to generate assembly for a file
+src/validador.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/lrp_core.dir/build.make CMakeFiles/lrp_core.dir/src/validador.cpp.s
+.PHONY : src/validador.cpp.s
+
 tests/test_alns.o: tests/test_alns.cpp.o
 .PHONY : tests/test_alns.o
 
@@ -959,6 +1046,54 @@ tests/test_split.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_split.dir/build.make CMakeFiles/test_split.dir/tests/test_split.cpp.s
 .PHONY : tests/test_split.cpp.s
 
+tests/test_validador.o: tests/test_validador.cpp.o
+.PHONY : tests/test_validador.o
+
+# target to build an object file
+tests/test_validador.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_validador.dir/build.make CMakeFiles/test_validador.dir/tests/test_validador.cpp.o
+.PHONY : tests/test_validador.cpp.o
+
+tests/test_validador.i: tests/test_validador.cpp.i
+.PHONY : tests/test_validador.i
+
+# target to preprocess a source file
+tests/test_validador.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_validador.dir/build.make CMakeFiles/test_validador.dir/tests/test_validador.cpp.i
+.PHONY : tests/test_validador.cpp.i
+
+tests/test_validador.s: tests/test_validador.cpp.s
+.PHONY : tests/test_validador.s
+
+# target to generate assembly for a file
+tests/test_validador.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_validador.dir/build.make CMakeFiles/test_validador.dir/tests/test_validador.cpp.s
+.PHONY : tests/test_validador.cpp.s
+
+validate.o: validate.cpp.o
+.PHONY : validate.o
+
+# target to build an object file
+validate.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/validate.dir/build.make CMakeFiles/validate.dir/validate.cpp.o
+.PHONY : validate.cpp.o
+
+validate.i: validate.cpp.i
+.PHONY : validate.i
+
+# target to preprocess a source file
+validate.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/validate.dir/build.make CMakeFiles/validate.dir/validate.cpp.i
+.PHONY : validate.cpp.i
+
+validate.s: validate.cpp.s
+.PHONY : validate.s
+
+# target to generate assembly for a file
+validate.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/validate.dir/build.make CMakeFiles/validate.dir/validate.cpp.s
+.PHONY : validate.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -970,6 +1105,7 @@ help:
 	@echo "... alns_lib"
 	@echo "... alns_lrp"
 	@echo "... benchmark"
+	@echo "... brute_force_lib"
 	@echo "... lrp_core"
 	@echo "... mapm_lib"
 	@echo "... test_alns"
@@ -982,6 +1118,8 @@ help:
 	@echo "... test_parser"
 	@echo "... test_solucion_inicial"
 	@echo "... test_split"
+	@echo "... test_validador"
+	@echo "... validate"
 	@echo "... benchmark.o"
 	@echo "... benchmark.i"
 	@echo "... benchmark.s"
@@ -997,6 +1135,9 @@ help:
 	@echo "... src/alns/solver.o"
 	@echo "... src/alns/solver.i"
 	@echo "... src/alns/solver.s"
+	@echo "... src/brute_force/solver.o"
+	@echo "... src/brute_force/solver.i"
+	@echo "... src/brute_force/solver.s"
 	@echo "... src/distancia.o"
 	@echo "... src/distancia.i"
 	@echo "... src/distancia.s"
@@ -1033,6 +1174,9 @@ help:
 	@echo "... src/solucion_inicial.o"
 	@echo "... src/solucion_inicial.i"
 	@echo "... src/solucion_inicial.s"
+	@echo "... src/validador.o"
+	@echo "... src/validador.i"
+	@echo "... src/validador.s"
 	@echo "... tests/test_alns.o"
 	@echo "... tests/test_alns.i"
 	@echo "... tests/test_alns.s"
@@ -1063,6 +1207,12 @@ help:
 	@echo "... tests/test_split.o"
 	@echo "... tests/test_split.i"
 	@echo "... tests/test_split.s"
+	@echo "... tests/test_validador.o"
+	@echo "... tests/test_validador.i"
+	@echo "... tests/test_validador.s"
+	@echo "... validate.o"
+	@echo "... validate.i"
+	@echo "... validate.s"
 .PHONY : help
 
 

@@ -1,0 +1,51 @@
+{
+  "instancia": "coord10-2-1.dat",
+  "costo": 11576.0000,
+  "num_clientes": 10,
+  "num_depositos": 2,
+  "Q": 60.0000,
+  "F": 100.0000,
+  "clientes": [
+    {"id": 1, "x": 8.0000, "y": 20.0000, "demanda": 18.0000, "huerfano": false},
+    {"id": 2, "x": 15.0000, "y": 8.0000, "demanda": 15.0000, "huerfano": false},
+    {"id": 3, "x": 5.0000, "y": 15.0000, "demanda": 22.0000, "huerfano": false},
+    {"id": 4, "x": 18.0000, "y": 12.0000, "demanda": 12.0000, "huerfano": false},
+    {"id": 5, "x": 12.0000, "y": 22.0000, "demanda": 20.0000, "huerfano": false},
+    {"id": 6, "x": 35.0000, "y": 45.0000, "demanda": 16.0000, "huerfano": false},
+    {"id": 7, "x": 45.0000, "y": 38.0000, "demanda": 14.0000, "huerfano": false},
+    {"id": 8, "x": 42.0000, "y": 48.0000, "demanda": 20.0000, "huerfano": false},
+    {"id": 9, "x": 38.0000, "y": 32.0000, "demanda": 18.0000, "huerfano": false},
+    {"id": 10, "x": 48.0000, "y": 42.0000, "demanda": 15.0000, "huerfano": false}
+  ],
+  "depositos": [
+    {"id": 11, "x": 10.0000, "y": 10.0000, "capacidad": 150.0000, "costo_apertura": 500.0000, "abierto": true, "color_idx": 0},
+    {"id": 12, "x": 40.0000, "y": 40.0000, "capacidad": 150.0000, "costo_apertura": 500.0000, "abierto": true, "color_idx": 1}
+  ],
+  "rutas": [
+    {
+      "deposito_id": 11,
+      "color_idx": 0,
+      "demanda": 60.0000,
+      "clientes": [3, 1, 5]
+    },
+    {
+      "deposito_id": 11,
+      "color_idx": 0,
+      "demanda": 27.0000,
+      "clientes": [4, 2]
+    },
+    {
+      "deposito_id": 12,
+      "color_idx": 1,
+      "demanda": 47.0000,
+      "clientes": [10, 7, 9]
+    },
+    {
+      "deposito_id": 12,
+      "color_idx": 1,
+      "demanda": 36.0000,
+      "clientes": [8, 6]
+    }
+  ],
+  "no_asignados": []
+}

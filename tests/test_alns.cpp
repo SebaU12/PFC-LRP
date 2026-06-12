@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
   bool duplicado = false;
   for (const auto &[dep, lista] : mejor.rutas)
     for (const auto &r : lista)
-      for (int c : r) {
+      for (int c : r.clientes) {
         if (vistos.count(c)) {
           duplicado = true;
         }

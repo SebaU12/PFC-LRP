@@ -1,0 +1,1 @@
+/etc/profiles/per-user/sebau12/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/test_validador.dir/link.d CMakeFiles/test_validador.dir/tests/test_validador.cpp.o -o test_validador  libalns_lib.a libmapm_lib.a liblrp_core.a

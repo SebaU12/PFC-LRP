@@ -87,7 +87,7 @@ static void test_objective_ruta_simple(const InstanciaLRP &inst,
                                        const Matriz &m) {
   int dep_id = inst.depositos[0].id; // 101
   Rutas r;
-  r[dep_id] = {{1}}; // una ruta con solo el cliente 1
+  r[dep_id] = {Ruta(dep_id, {1})}; // una ruta con solo el cliente 1
 
   std::vector<int> dep_ids = {dep_id};
   EstadoLRP s(r, dep_ids, {}, m, inst);

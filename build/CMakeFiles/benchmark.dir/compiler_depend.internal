@@ -9,6 +9,7 @@ CMakeFiles/benchmark.dir/benchmark.cpp.o
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/alns/solver.h
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/distancia.h
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/estado.h
+ /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/mapm/mapm.h
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/parser.h
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/solucion_inicial.h
  /nix/store/j8irrc0mpx029dw0rmadsjylg7h31ync-glibc-2.42-51-dev/include/alloca.h
@@ -343,4 +344,5 @@ benchmark
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles/benchmark.dir/benchmark.cpp.o
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/libalns_lib.a
  /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/liblrp_core.a
+ /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/libmapm_lib.a
 

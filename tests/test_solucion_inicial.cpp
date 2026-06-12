@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
   std::set<int> en_rutas;
   for (const auto &[dep, lista] : sol.rutas)
     for (const auto &ruta : lista)
-      for (int c : ruta)
+      for (int c : ruta.clientes)
         en_rutas.insert(c);
 
   check((int)en_rutas.size() == inst.num_clientes,
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
   int total_en_rutas = 0;
   for (const auto &[dep, lista] : sol.rutas)
     for (const auto &r : lista)
-      total_en_rutas += (int)r.size();
+      total_en_rutas += (int)r.clientes.size();
 
   check(total_en_rutas == inst.num_clientes,
         "Sin clientes duplicados en rutas");
@@ -61,11 +61,11 @@ int main(int argc, char *argv[]) {
         // Solo es aceptable si la ruta tiene UN cliente
         // cuya demanda ya supera Q individualmente
         bool inevitable =
-            (r.size() == 1 && inst.clientes[r[0] - 1].demanda > inst.Q);
+            (r.clientes.size() == 1 && inst.clientes[r.clientes[0] - 1].demanda > inst.Q);
         if (!inevitable) {
           std::cerr << "  [DIAG] Violación evitable — Dep " << dep
                     << " | demanda=" << dem << " > Q=" << inst.Q << " | "
-                    << r.size() << " clientes\n";
+                    << r.clientes.size() << " clientes\n";
         }
         rutas_violadas++;
       } else {
@@ -80,8 +80,8 @@ int main(int argc, char *argv[]) {
             for (const auto &[dep, lista] : sol.rutas)
               for (const auto &r : lista)
                 if (demanda_ruta_externa(r, inst) > inst.Q)
-                  if (!(r.size() == 1 &&
-                        inst.clientes[r[0] - 1].demanda > inst.Q))
+                  if (!(r.clientes.size() == 1 &&
+                        inst.clientes[r.clientes[0] - 1].demanda > inst.Q))
                     return false;
             return true;
           }(),

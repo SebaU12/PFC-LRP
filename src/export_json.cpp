@@ -1,61 +1,46 @@
+// Serialización de EstadoLRP a JSON (sin dependencias externas).
 #include "export_json.h"
 
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 
-// ─────────────────────────────────────────
-// Helpers de serialización JSON manual
-// (sin dependencias externas)
-// ─────────────────────────────────────────
-
-// Escapa caracteres especiales en strings JSON
 static std::string json_str(const std::string &s) {
   std::string out = "\"";
   for (char c : s) {
-    if (c == '"')
-      out += "\\\"";
-    else if (c == '\\')
-      out += "\\\\";
-    else if (c == '\n')
-      out += "\\n";
-    else
-      out += c;
+    if (c == '"')  out += "\\\"";
+    else if (c == '\\') out += "\\\\";
+    else if (c == '\n') out += "\\n";
+    else out += c;
   }
   out += "\"";
   return out;
 }
 
-// double con precisión fija (4 decimales)
 static std::string json_dbl(double v) {
   std::ostringstream ss;
   ss << std::fixed << std::setprecision(4) << v;
   return ss.str();
 }
 
-// ─────────────────────────────────────────
-// exportar_solucion_json
-// ─────────────────────────────────────────
 void exportar_solucion_json(const EstadoLRP &e, const std::string &ruta) {
   std::ofstream f(ruta);
   if (!f.is_open())
     throw std::runtime_error("export_json: no se pudo abrir: " + ruta);
 
   const InstanciaLRP &inst = *e.datos;
-  std::set<int> abiertos(e.depositos_abiertos.begin(),
-                         e.depositos_abiertos.end());
+  std::set<int> abiertos(e.depositos_abiertos.begin(), e.depositos_abiertos.end());
   std::set<int> huerfanos(e.no_asignados.begin(), e.no_asignados.end());
 
-  // Asignar un color index a cada depósito abierto (para el visualizador)
-  std::map<int, int> color_dep; // dep_id → índice de color
+  std::map<int, int> color_dep;
   int ci = 0;
   for (int d : e.depositos_abiertos)
     color_dep[d] = ci++;
 
   f << "{\n";
-
-  // ── Meta ─────────────────────────────────────────────────
   f << "  \"instancia\": " << json_str(inst.nombre) << ",\n";
   f << "  \"costo\": " << json_dbl(e.objective()) << ",\n";
   f << "  \"num_clientes\": " << inst.num_clientes << ",\n";
@@ -63,7 +48,6 @@ void exportar_solucion_json(const EstadoLRP &e, const std::string &ruta) {
   f << "  \"Q\": " << json_dbl(inst.Q) << ",\n";
   f << "  \"F\": " << json_dbl(inst.F) << ",\n";
 
-  // ── Clientes ─────────────────────────────────────────────
   f << "  \"clientes\": [\n";
   for (int i = 0; i < inst.num_clientes; ++i) {
     const auto &c = inst.clientes[i];
@@ -78,7 +62,6 @@ void exportar_solucion_json(const EstadoLRP &e, const std::string &ruta) {
   }
   f << "  ],\n";
 
-  // ── Depósitos ─────────────────────────────────────────────
   f << "  \"depositos\": [\n";
   for (int i = 0; i < inst.num_depositos; ++i) {
     const auto &d = inst.depositos[i];
@@ -96,27 +79,21 @@ void exportar_solucion_json(const EstadoLRP &e, const std::string &ruta) {
   }
   f << "  ],\n";
 
-  // ── Rutas ────────────────────────────────────────────────
-  // Cada ruta incluye: depósito origen, índice de color,
-  // demanda total y secuencia completa de nodos (dep→c1→…→cn→dep)
   f << "  \"rutas\": [\n";
   bool primera_ruta = true;
   for (int dep_id : e.depositos_abiertos) {
     auto it = e.rutas.find(dep_id);
     if (it == e.rutas.end())
       continue;
-
     for (const auto &r : it->second) {
-      if (r.empty())
+      if (r.clientes.empty())
         continue;
-
       if (!primera_ruta)
         f << ",\n";
       primera_ruta = false;
 
-      // Calcular demanda de esta ruta
       double dem = 0.0;
-      for (int c : r)
+      for (int c : r.clientes)
         dem += inst.clientes[c - 1].demanda;
 
       f << "    {\n";
@@ -124,9 +101,9 @@ void exportar_solucion_json(const EstadoLRP &e, const std::string &ruta) {
       f << "      \"color_idx\": " << color_dep[dep_id] << ",\n";
       f << "      \"demanda\": " << json_dbl(dem) << ",\n";
       f << "      \"clientes\": [";
-      for (int j = 0; j < (int)r.size(); ++j) {
-        f << r[j];
-        if (j + 1 < (int)r.size())
+      for (int j = 0; j < (int)r.clientes.size(); ++j) {
+        f << r.clientes[j];
+        if (j + 1 < (int)r.clientes.size())
           f << ", ";
       }
       f << "]\n";
@@ -137,17 +114,14 @@ void exportar_solucion_json(const EstadoLRP &e, const std::string &ruta) {
     f << "\n";
   f << "  ],\n";
 
-  // ── No asignados ─────────────────────────────────────────
   f << "  \"no_asignados\": [";
   bool primero = true;
   for (int c : e.no_asignados) {
-    if (!primero)
-      f << ", ";
+    if (!primero) f << ", ";
     f << c;
     primero = false;
   }
   f << "]\n";
-
   f << "}\n";
   f.close();
 }

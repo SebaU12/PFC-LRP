@@ -63,13 +63,13 @@ static void descomponer_costo(const EstadoLRP &e, double &cd, double &cr) {
   for (const auto &[dep_id, lista] : e.rutas) {
     int idx_dep = dep_id - 1;
     for (const auto &r : lista) {
-      if (r.empty())
+      if (r.clientes.empty())
         continue;
       cr += inst.F;
-      cr += mat[idx_dep][r.front() - 1];
-      for (int i = 0; i + 1 < (int)r.size(); ++i)
-        cr += mat[r[i] - 1][r[i + 1] - 1];
-      cr += mat[r.back() - 1][idx_dep];
+      cr += mat[idx_dep][r.clientes.front() - 1];
+      for (int i = 0; i + 1 < (int)r.clientes.size(); ++i)
+        cr += mat[r.clientes[i] - 1][r.clientes[i + 1] - 1];
+      cr += mat[r.clientes.back() - 1][idx_dep];
     }
   }
 }

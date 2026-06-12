@@ -25,7 +25,7 @@ static void check_integridad(const EstadoLRP &e, const std::string &nombre) {
 
   for (const auto &[dep, lista] : e.rutas)
     for (const auto &r : lista)
-      for (int c : r) {
+      for (int c : r.clientes) {
         if (vistos.count(c)) {
           std::cerr << "[FAIL] " << nombre << ": cliente " << c
                     << " duplicado en rutas\n";

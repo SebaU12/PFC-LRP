@@ -68,7 +68,10 @@ int main(int argc, char *argv[]) {
             << " iteraciones)...\n";
   auto resultado = algo.ejecutar(sol_inicial);
 
-  // ── 5. Reporte de resultados ──────────────────────────
+  // ── 5. Imprimir mejor solución con detalle de rutas ──
+  resultado.mejor_estado.imprimir_solucion();
+
+  // ── Reporte de resultados ─────────────────────────────
   int n_rutas = 0;
   for (const auto &[d, l] : resultado.mejor_estado.rutas)
     n_rutas += (int)l.size();
@@ -99,7 +102,7 @@ int main(int argc, char *argv[]) {
 
       double dem_dep = 0;
       for (const auto &r : e.rutas.at(dep_id))
-        for (int c : r)
+        for (int c : r.clientes)
           dem_dep += inst.clientes[c - 1].demanda;
       if (dem_dep > dep.capacidad)
         z_pen_deposito += 100000.0 * (dem_dep - dep.capacidad);
@@ -107,13 +110,13 @@ int main(int argc, char *argv[]) {
     for (const auto &[dep_id, lista] : e.rutas) {
       int idx_dep = dep_id - 1;
       for (const auto &r : lista) {
-        if (r.empty())
+        if (r.clientes.empty())
           continue;
         z_vehiculos += inst.F;
-        z_distancia += mat[idx_dep][r.front() - 1];
-        for (int i = 0; i + 1 < (int)r.size(); ++i)
-          z_distancia += mat[r[i] - 1][r[i + 1] - 1];
-        z_distancia += mat[r.back() - 1][idx_dep];
+        z_distancia += mat[idx_dep][r.clientes.front() - 1];
+        for (int i = 0; i + 1 < (int)r.clientes.size(); ++i)
+          z_distancia += mat[r.clientes[i] - 1][r.clientes[i + 1] - 1];
+        z_distancia += mat[r.clientes.back() - 1][idx_dep];
       }
     }
     double z_pen_huerfanos = 100000.0 * e.no_asignados.size();
@@ -135,7 +138,7 @@ int main(int argc, char *argv[]) {
       const auto &dep = inst.depositos[dep_id - inst.num_clientes - 1];
       double dem = 0;
       for (const auto &r : e.rutas.at(dep_id))
-        for (int c : r)
+        for (int c : r.clientes)
           dem += inst.clientes[c - 1].demanda;
       std::cout << "  Dep " << dep_id << ": demanda=" << dem
                 << " / cap=" << dep.capacidad

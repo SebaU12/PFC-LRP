@@ -27,7 +27,7 @@ static void verificar_estado(const EstadoLRP &e,
     std::set<int> vistos;
     for (const auto &[dep, lista] : e.rutas)
         for (const auto &r : lista)
-            for (int c : r)
+            for (int c : r.clientes)
                 vistos.insert(c);
 
     check((int)vistos.size() == n,
@@ -169,7 +169,7 @@ static void test_capacidades(const InstanciaLRP &inst, const Matriz &mat) {
         double dem_dep = 0.0;
         for (const auto &r : lista) {
             double dem_r = 0.0;
-            for (int c : r)
+            for (int c : r.clientes)
                 dem_r += inst.clientes[c - 1].demanda;
             if (dem_r > inst.Q + 1e-6) {
                 Q_ok = false;

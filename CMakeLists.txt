@@ -13,6 +13,7 @@ add_library(lrp_core
     src/estado.cpp
     src/solucion_inicial.cpp
     src/export_json.cpp
+    src/validador.cpp
 )
 target_include_directories(lrp_core PUBLIC ${CMAKE_SOURCE_DIR})
 
@@ -58,6 +59,20 @@ target_link_libraries(test_operadores       PRIVATE alns_lib)
 
 add_executable(test_alns             tests/test_alns.cpp)
 target_link_libraries(test_alns             PRIVATE alns_lib)
+
+# ── Librería Fuerza Bruta ─────────────────────────────────────
+add_library(brute_force_lib
+    src/brute_force/solver.cpp
+)
+target_link_libraries(brute_force_lib PUBLIC lrp_core)
+
+# ── Ejecutable de validación ──────────────────────────────────
+add_executable(validate validate.cpp)
+target_link_libraries(validate PRIVATE brute_force_lib alns_lib mapm_lib)
+
+# ── Test validador ────────────────────────────────────────────
+add_executable(test_validador        tests/test_validador.cpp)
+target_link_libraries(test_validador        PRIVATE alns_lib mapm_lib)
 
 # ── Tests MA|PM ───────────────────────────────────────────────
 add_executable(test_split            tests/test_split.cpp)

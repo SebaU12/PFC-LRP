@@ -44,10 +44,10 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = /nix/store/ykj8mb3cq8yhxbalh0v5hrav3l0fal4d-home-manager-path/bin/cmake
+CMAKE_COMMAND = /nix/store/22l52811n9fw9wam345sqpcxqvlgrk73-home-manager-path/bin/cmake
 
 # The command to remove a file.
-RM = /nix/store/ykj8mb3cq8yhxbalh0v5hrav3l0fal4d-home-manager-path/bin/cmake -E rm -f
+RM = /nix/store/22l52811n9fw9wam345sqpcxqvlgrk73-home-manager-path/bin/cmake -E rm -f
 
 # Escaping for special characters.
 EQUALS = =
@@ -142,13 +142,28 @@ CMakeFiles/lrp_core.dir/src/export_json.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/lrp_core.dir/src/export_json.cpp.s"
 	/etc/profiles/per-user/sebau12/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/export_json.cpp -o CMakeFiles/lrp_core.dir/src/export_json.cpp.s
 
+CMakeFiles/lrp_core.dir/src/validador.cpp.o: CMakeFiles/lrp_core.dir/flags.make
+CMakeFiles/lrp_core.dir/src/validador.cpp.o: /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/validador.cpp
+CMakeFiles/lrp_core.dir/src/validador.cpp.o: CMakeFiles/lrp_core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/lrp_core.dir/src/validador.cpp.o"
+	/etc/profiles/per-user/sebau12/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/lrp_core.dir/src/validador.cpp.o -MF CMakeFiles/lrp_core.dir/src/validador.cpp.o.d -o CMakeFiles/lrp_core.dir/src/validador.cpp.o -c /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/validador.cpp
+
+CMakeFiles/lrp_core.dir/src/validador.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/lrp_core.dir/src/validador.cpp.i"
+	/etc/profiles/per-user/sebau12/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/validador.cpp > CMakeFiles/lrp_core.dir/src/validador.cpp.i
+
+CMakeFiles/lrp_core.dir/src/validador.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/lrp_core.dir/src/validador.cpp.s"
+	/etc/profiles/per-user/sebau12/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/src/validador.cpp -o CMakeFiles/lrp_core.dir/src/validador.cpp.s
+
 # Object files for target lrp_core
 lrp_core_OBJECTS = \
 "CMakeFiles/lrp_core.dir/src/parser.cpp.o" \
 "CMakeFiles/lrp_core.dir/src/distancia.cpp.o" \
 "CMakeFiles/lrp_core.dir/src/estado.cpp.o" \
 "CMakeFiles/lrp_core.dir/src/solucion_inicial.cpp.o" \
-"CMakeFiles/lrp_core.dir/src/export_json.cpp.o"
+"CMakeFiles/lrp_core.dir/src/export_json.cpp.o" \
+"CMakeFiles/lrp_core.dir/src/validador.cpp.o"
 
 # External object files for target lrp_core
 lrp_core_EXTERNAL_OBJECTS =
@@ -158,9 +173,10 @@ liblrp_core.a: CMakeFiles/lrp_core.dir/src/distancia.cpp.o
 liblrp_core.a: CMakeFiles/lrp_core.dir/src/estado.cpp.o
 liblrp_core.a: CMakeFiles/lrp_core.dir/src/solucion_inicial.cpp.o
 liblrp_core.a: CMakeFiles/lrp_core.dir/src/export_json.cpp.o
+liblrp_core.a: CMakeFiles/lrp_core.dir/src/validador.cpp.o
 liblrp_core.a: CMakeFiles/lrp_core.dir/build.make
 liblrp_core.a: CMakeFiles/lrp_core.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX static library liblrp_core.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/sebau12/Desktop/Universidad/9no_ciclo/PFC/Experimento/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX static library liblrp_core.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/lrp_core.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/lrp_core.dir/link.txt --verbose=$(VERBOSE)
 
