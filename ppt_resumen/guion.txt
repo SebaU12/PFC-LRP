@@ -1,0 +1,543 @@
+================================================================================
+  GUIÓN DE PRESENTACIÓN — Metaheurísticas para el LRP
+  Duración total estimada: 15 minutos
+  Inicio: diapositiva ALNS (se omite la diapositiva del problema LRP)
+================================================================================
+
+NOTA DE USO: Los corchetes [SEÑALAR ...] indican dónde apuntar en la pantalla.
+Los tiempos son orientativos. Hablar a ritmo pausado y claro.
+
+--------------------------------------------------------------------------------
+PORTADA — 00:00 a 00:30  (~30 segundos)
+--------------------------------------------------------------------------------
+
+"Buenas tardes. En esta presentación vamos a mostrar el trabajo que hicimos
+para el Proyecto Final de Carrera: la implementación y comparación de dos
+metaheurísticas para resolver el Location Routing Problem, que es un problema
+de optimización logística.
+
+Los dos algoritmos que implementamos son el ALNS — Adaptive Large Neighborhood
+Search — y el MA barra PM, que es un Algoritmo Memético con Gestión de
+Población. Vamos a ver cómo funcionan y qué resultados obtuvimos."
+
+--------------------------------------------------------------------------------
+DIAPOSITIVA 2 — ALNS: MECANISMO GENERAL
+00:30 a 04:00  (~3 minutos 30 segundos)
+--------------------------------------------------------------------------------
+
+[Aparece el diagrama de flujo a la izquierda y los dos bloques a la derecha]
+
+"Empecemos con el ALNS. La idea central de este algoritmo es muy simple:
+partiendo de una solución inicial, en cada iteración destruimos parte de la
+solución y luego la reparamos, esperando que la nueva solución sea mejor.
+Esto se repite miles de veces.
+
+Veamos el flujo paso a paso."
+
+--- Nodo naranja: Solución inicial ---
+
+"Todo comienza con una solución inicial. [SEÑALAR nodo naranja 'Solución
+inicial'] Nosotros usamos una estrategia llamada 'All-Open + Greedy Insertion':
+abrimos todos los depósitos disponibles e insertamos cada cliente en la
+posición más barata. Es una solución válida pero probablemente no muy buena.
+Sirve como punto de partida.
+
+Pensemos en un ejemplo concreto: imaginen que tenemos 20 clientes y 3 depósitos.
+La solución inicial abre los 3 depósitos y reparte los clientes en rutas de
+forma básica. A partir de aquí el algoritmo empieza a mejorarla."
+
+--- Nodo azul 1: Seleccionar destructor d y reparador r ---
+
+"El primer paso en cada iteración es elegir qué herramienta usar. [SEÑALAR
+nodo 'Seleccionar destructor d y reparador r']
+
+Tenemos dos tipos de operadores:
+- Los destructores, que se representan con la letra 'd', eliminan clientes
+  de las rutas y los ponen en una lista de espera.
+- Los reparadores, que se representan con 'r', toman esa lista de espera
+  y reinsertan los clientes en las rutas.
+
+La pregunta es: ¿cuál de los cinco destructores y cuáles de los dos reparadores
+usamos en esta iteración? Se elige al azar, pero no con probabilidad uniforme:
+se usa una ruleta proporcional a los pesos 'w sub i' de cada operador.
+
+La letra 'w' con subíndice 'i' representa el peso del operador número 'i'.
+Un operador con peso alto tiene más probabilidad de ser elegido. Al inicio
+todos los pesos son iguales, pero el algoritmo los va ajustando según cómo
+funcionan, de ahí el nombre 'Adaptativo'."
+
+--- Nodo azul 2: Aplicar la fórmula ---
+
+"[SEÑALAR nodo con fórmula r(d(s,q))]
+
+Una vez elegidos 'd' y 'r', los aplicamos. La fórmula 's prima igual a r de
+d de s con q' se lee así:
+- 's' es la solución actual.
+- 'd de s con q' significa: aplica el destructor a la solución actual,
+  extrayendo exactamente 'q' clientes. La 'q' es un parámetro que dice cuántos
+  clientes se eliminan por iteración, típicamente entre 2 y 10.
+- 'r de eso' significa: toma esos 'q' clientes sueltos y reinsértalos en las
+  rutas para obtener la nueva solución candidata 's prima'.
+
+Ejemplo: si q=4, el destructor saca 4 clientes de sus rutas actuales y el
+reparador los vuelve a colocar, posiblemente en rutas diferentes y en mejores
+posiciones."
+
+--- Nodo azul 3: Criterio SA de aceptación ---
+
+"[SEÑALAR nodo 'Criterio SA de aceptación']
+
+Ahora tenemos dos soluciones: la actual 's' y la nueva candidata 's prima'.
+¿Cuál nos quedamos?
+
+Aquí entra el Simulated Annealing, que es el criterio de aceptación.
+[SEÑALAR bloque derecho 'Simulated Annealing']
+
+Hay tres casos:
+1. Si 's prima' es el mejor resultado global que hemos visto hasta ahora,
+   la aceptamos y actualizamos el mejor conocido.
+2. Si 's prima' mejora la solución actual pero no es el mejor global,
+   también la aceptamos.
+3. Si 's prima' es peor que la actual, no la rechazamos automáticamente.
+   La aceptamos con una probabilidad 'P' que se calcula como:
+   e elevado a menos delta f dividido por T — donde la letra caligráfica
+   'T' con tilde es la TEMPERATURA.
+
+La temperatura 'T' controla cuánto riesgo tomamos:
+- Al inicio, la temperatura es alta, T sub cero igual a 50,000. Con temperatura
+  alta, el exponente es casi cero, la probabilidad es casi 1, y aceptamos casi
+  cualquier solución aunque sea peor. El algoritmo EXPLORA libremente.
+- A medida que pasan las iteraciones, la temperatura baja: en cada iteración
+  se multiplica por alfa, donde alfa es 0.998. Esto se llama enfriamiento.
+  Con temperatura baja, el exponente es muy negativo, la probabilidad cae a
+  casi cero y solo aceptamos mejoras. El algoritmo EXPLOTA lo que encontró.
+
+Ejemplo numérico: si la solución actual tiene costo 100,000 y la candidata
+tiene costo 102,000, entonces delta f es 2,000. Con temperatura inicial de
+50,000, P = e^(-2000/50000) = e^(-0.04) ≈ 0.96. O sea 96% de probabilidad
+de aceptar aunque sea peor. Después de muchas iteraciones, si T bajó a 1,000,
+P = e^(-2) ≈ 0.14, solo 14%. Y con T = 100, P ≈ 0.000000002, prácticamente
+cero."
+
+--- Nodo azul 4: Acumular puntaje sigma ---
+
+"[SEÑALAR nodo 'Acumular puntaje sigma']
+
+Independientemente de si aceptamos o no la solución, le asignamos un puntaje
+al par destructor+reparador que usamos. Ese puntaje se llama sigma.
+
+Los valores sigma son:
+- Sigma sub 1 igual a 33: se otorga si encontramos un NUEVO ÓPTIMO GLOBAL.
+  Es la recompensa más alta porque es el mejor resultado posible.
+- Sigma sub 2 igual a 9: si la solución mejora la actual pero no es el mejor
+  global. Aún es buena noticia.
+- Sigma sub 3 igual a 13: si la solución es peor que la actual pero fue
+  aceptada por el criterio SA. Fue útil para explorar.
+- Sigma sub 4 igual a 1: si la solución fue rechazada. Puntaje mínimo para
+  que el operador no quede en cero.
+
+Noten que sigma 3 es mayor que sigma 2: aceptar una solución peor con SA
+que luego lleva a mejores regiones vale más que una pequeña mejora directa."
+
+--- Nodo verde: Actualizar pesos ---
+
+"[SEÑALAR nodo verde 'Cada 100 iters: actualizar pesos']
+[SEÑALAR bloque derecho 'Ruleta Adaptativa']
+
+Cada 100 iteraciones — eso se llama un segmento — actualizamos los pesos de
+todos los operadores con esta fórmula:
+w sub i nuevo = w sub i viejo multiplicado por (1 menos rho) más rho
+multiplicado por pi sub i dividido theta sub i.
+
+Desglosemos cada símbolo:
+- 'w sub i' es el peso actual del operador i.
+- 'rho' con el valor 0.1 es el factor de reacción: qué tan rápido cambian
+  los pesos. Con rho=0.1, el 90% del peso viene del pasado y solo el 10%
+  del comportamiento en este segmento. Evita cambios bruscos.
+- 'pi sub i' es la suma de todos los sigma que acumuló el operador i en el
+  último segmento.
+- 'theta sub i' es cuántas veces se usó el operador i en ese segmento.
+- El cociente pi/theta es el puntaje promedio por uso: qué tan efectivo fue.
+
+El resultado: operadores que encontraron buenas soluciones suben de peso y
+son elegidos más frecuentemente. Los que no aportaron bajan. El algoritmo
+APRENDE qué estrategias funcionan para la instancia específica que está
+resolviendo."
+
+--- Flecha de retorno ---
+
+"[SEÑALAR flecha que vuelve desde el nodo verde al nodo de selección]
+
+Y esto se repite: con los pesos actualizados, volvemos a seleccionar operadores
+y continuamos hasta agotar las iteraciones."
+
+--------------------------------------------------------------------------------
+DIAPOSITIVA 3 — ALNS: OPERADORES
+04:00 a 07:00  (~3 minutos)
+--------------------------------------------------------------------------------
+
+[Aparece columna izquierda con 5 destructores y columna derecha con 2 reparadores]
+
+"Ahora veamos los operadores concretos. Los destructores extraen clientes de
+las rutas y los mandan a una lista de espera que llamamos U — de 'unassigned',
+no asignados. Hay cinco destructores."
+
+--- Random removal ---
+
+"[SEÑALAR 'Random removal']
+El más simple: extrae exactamente q clientes elegidos completamente al azar.
+No hay criterio de selección, cualquier cliente tiene igual probabilidad.
+Su valor está en la diversificación pura: a veces el azar encuentra
+combinaciones que ninguna estrategia deliberada encontraría."
+
+--- Worst removal ---
+
+"[SEÑALAR 'Worst removal']
+Este es más inteligente. Para cada cliente en las rutas calcula su costo
+marginal de remoción, que se representa con Delta sub j:
+Delta sub j = c sub aj + c sub jb − c sub ab.
+
+Aquí, a y b son el cliente anterior y el siguiente al cliente j en la ruta.
+c sub aj es el costo de ir desde a hasta j, c sub jb es el costo de ir de j
+a b, y c sub ab es el costo directo de ir de a a b sin pasar por j.
+La diferencia es cuánto AHORRAMOS si sacamos a j de esa posición.
+
+Un cliente con Delta alto es uno que está muy mal ubicado: sacarlo ahorra
+mucho. El destructor extrae los q clientes con mayor Delta. La idea es
+detectar clientes mal ubicados y darles una segunda oportunidad de encontrar
+una mejor posición."
+
+--- Shaw removal ---
+
+"[SEÑALAR 'Shaw removal']
+Este destructor elige clientes similares entre sí, principalmente por
+proximidad geográfica. Parte de un cliente semilla aleatorio y luego elige
+los q−1 clientes más cercanos a esa semilla.
+
+La lógica es que si un grupo de clientes están juntos en el espacio, quizás
+convenga reorganizar cómo se recorren conjuntamente. Al extraerlos juntos y
+reasignarlos, el reparador puede encontrar rutas más eficientes para ese
+cluster."
+
+--- Route removal ---
+
+"[SEÑALAR 'Route removal']
+Elimina una ruta completa al azar, liberando a todos sus clientes.
+Esto obliga al algoritmo a reasignar ese grupo de clientes a otras rutas
+ya existentes. Tiene el efecto de presionar la reducción del número de
+vehículos utilizados, que es importante porque cada ruta tiene un costo
+fijo F."
+
+--- Depot closing ---
+
+"[SEÑALAR 'Depot closing']
+El más agresivo. Cierra un depósito completo, liberando a TODOS sus clientes.
+Es el único operador que actúa sobre las decisiones de localización, no solo
+de ruteo. Permite explorar si cerrar un depósito y redistribuir sus clientes
+resulta más barato que mantenerlo abierto pagando su costo de apertura."
+
+--- Greedy Insertion ---
+
+"[SEÑALAR bloque 'Greedy Insertion']
+Una vez que hay clientes en la lista U, el reparador los reinserta.
+El Greedy Insertion es el reparador miope: para cada cliente en U, prueba
+todas las posiciones posibles en todas las rutas de todos los depósitos
+abiertos, y lo inserta donde el costo delta sea mínimo.
+
+Delta es el costo de inserción: delta = c sub aj + c sub jb − c sub ab.
+Noten que es la misma fórmula que Delta del worst removal pero en sentido
+opuesto: antes medíamos lo que AHORRAMOS al sacar, ahora medimos lo que
+PAGAMOS al meter. El cliente queda entre a y b, y el costo extra es el
+desvío que genera.
+
+El defecto de este reparador es que es miope: inserta uno por uno sin
+considerar cómo la posición de un cliente afecta las opciones de los demás."
+
+--- Regret-2 Insertion ---
+
+"[SEÑALAR bloque 'Regret-2 Insertion']
+El reparador previsor soluciona ese defecto. Para cada cliente j en U calcula
+su 'arrepentimiento' con la fórmula:
+regret de j = delta superíndice 2 de j − delta superíndice 1 de j.
+
+Aquí delta superíndice 1 es el costo de la MEJOR inserción posible para j,
+y delta superíndice 2 es el costo de la SEGUNDA MEJOR inserción.
+
+La diferencia mide cuánto perdería el cliente j si no se le asigna su
+primera opción y tiene que conformarse con la segunda.
+
+El reparador inserta primero al cliente con mayor regret: ese cliente es el
+más 'urgente' porque si espera y alguien más ocupa su mejor posición,
+quedará en una posición mucho más costosa.
+
+Ejemplo: imaginen que el cliente A puede ir en posición 1 con costo 10 o
+en posición 2 con costo 11, entonces su regret es 1. El cliente B puede ir
+en posición 3 con costo 10 o en posición 4 con costo 50, su regret es 40.
+El Regret-2 inserta primero a B porque si no lo hacemos ahora y esa posición
+3 se ocupa, B quedará en una posición 4 que es mucho más cara."
+
+--------------------------------------------------------------------------------
+DIAPOSITIVA 4 — MA|PM: REPRESENTACIÓN Y DECODIFICACIÓN
+07:00 a 10:00  (~3 minutos)
+--------------------------------------------------------------------------------
+
+[Aparece la codificación del cromosoma a la izquierda y el Split a la derecha]
+
+"Pasamos ahora al segundo algoritmo: el MA barra PM, que es un Algoritmo
+Memético con Gestión de Población. A diferencia del ALNS que trabaja con
+una sola solución, el MA|PM trabaja con una POBLACIÓN de soluciones que
+evolucionan y se combinan entre sí, como en los algoritmos genéticos.
+
+El componente clave que hace que este algoritmo sea especial es la forma
+en que REPRESENTA las soluciones internamente."
+
+--- Cromosoma ---
+
+"[SEÑALAR bloque 'Codificación indirecta: el Cromosoma']
+
+En vez de representar directamente las rutas, el MA|PM usa lo que se llama
+una representación INDIRECTA con dos vectores:
+
+El primero es DS — Depot Status. [SEÑALAR 'DS']
+DS es un vector de m enteros, donde m es el número de depósitos.
+Si DS[i] es mayor que cero, el depósito i está ABIERTO.
+El valor positivo además indica en qué posición del segundo vector comienzan
+los clientes de ese depósito.
+
+El segundo es CS — Client Sequence. [SEÑALAR 'CS']
+CS es la permutación de los n clientes — n es el número total de clientes.
+Se llama 'Giant Tour' o recorrido gigante: es un orden lineal de todos los
+clientes, sin indicar en ningún momento qué cliente va a qué depósito ni
+cómo se forman las rutas.
+
+[SEÑALAR diagrama TikZ con los 5 nodos]
+
+En el ejemplo de la pantalla, con n=5 clientes y 2 depósitos abiertos D1 y D2,
+el Giant Tour es: C3, C1, C5, C2, C4.
+La línea roja punteada al centro muestra el 'corte Split': los clientes a la
+izquierda del corte (C3, C1) irán a D1, y los de la derecha (C2, C4) a D2.
+
+Pero hay algo fundamental: el cromosoma NO dice dónde está el corte.
+Eso lo determina el algoritmo Split."
+
+--- Algoritmo Split ---
+
+"[SEÑALAR bloque 'Algoritmo Split']
+
+El Split es el decodificador: toma el Giant Tour y determina de forma ÓPTIMA
+cómo partirlo en rutas y qué depósito asignar a cada segmento.
+
+¿Cómo funciona? Construye un grafo auxiliar — se llama DAG, que significa
+grafo dirigido acíclico — con n+1 nodos numerados del 0 al n.
+Cada nodo representa una posición de corte en el Giant Tour.
+
+Existe un arco del nodo u al nodo v si los clientes desde la posición u+1
+hasta la posición v en el Giant Tour pueden formar una ruta FACTIBLE:
+que la suma de sus demandas no supere la capacidad Q del vehículo.
+Si esa ruta es factible, el peso del arco es el costo mínimo de esa ruta
+asignada al mejor depósito disponible.
+
+Luego, se busca el camino más corto desde el nodo 0 hasta el nodo n usando
+Bellman-Ford en orden topológico. Ese camino determina simultáneamente:
+- Los puntos de corte: cómo partir el Giant Tour en segmentos.
+- El depósito asignado a cada segmento.
+
+La complejidad es O de n cuadrado por m, donde n es el número de clientes
+y m el de depósitos. Para n=50, m=5, son unos 12,500 operaciones por llamada.
+
+[SEÑALAR bloque 'Por qué es brillante el Split']
+
+¿Por qué es tan importante esta arquitectura? Porque permite que los
+operadores genéticos — el cruce y la mutación — trabajen libremente sobre
+permutaciones de clientes SIN preocuparse por factibilidad.
+No hay que diseñar cruces especiales que respeten capacidades ni rutas.
+El Split garantiza que CUALQUIER permutación de clientes se convierte
+automáticamente en la mejor asignación de rutas posible."
+
+--------------------------------------------------------------------------------
+DIAPOSITIVA 5 — MA|PM: EVOLUCIÓN POBLACIONAL Y DIVERSIDAD
+10:00 a 12:30  (~2 minutos 30 segundos)
+--------------------------------------------------------------------------------
+
+[Aparece la diapositiva con OX, Búsqueda Local, BPD y flujo]
+
+"Una vez que tenemos la representación y el decodificador, veamos cómo
+evoluciona la población."
+
+--- Cruce OX ---
+
+"[SEÑALAR bloque 'Cruce OX']
+
+Para generar nuevas soluciones, cruzamos dos soluciones de la población
+usando el operador OX — Order Crossover.
+
+El proceso tiene dos pasos:
+Paso 1: se copia un segmento del Giant Tour del Padre 1 directamente al hijo.
+Ese segmento va desde la posición k sub 1 hasta la posición k sub 2 en la
+permutación — pi es la notación para la permutación.
+Paso 2: se completan los clientes restantes con el orden en que aparecen en
+el Padre 2, saltándose los que ya están en el hijo.
+
+Ejemplo sencillo con 5 clientes:
+Padre 1: [C3, C1, C5, C2, C4] — segmento elegido: posiciones 2 a 4, o sea [C1, C5, C2]
+Padre 2: [C2, C4, C1, C3, C5]
+El hijo comienza con [_, C1, C5, C2, _] y completa con el orden del Padre 2
+ignorando C1, C5 y C2 que ya están: quedan C4 y C3.
+Resultado: [C4, C1, C5, C2, C3].
+
+La ventaja del OX es que preserva el orden relativo de los clientes, que
+codifica la estructura espacial de las rutas."
+
+--- Búsqueda Local ---
+
+"[SEÑALAR bloque 'Búsqueda Local']
+
+Después del cruce y del Split, cada hijo pasa por una fase de búsqueda local.
+Esto es lo que hace que el algoritmo sea MEMÉTICO: combina evolución global
+con optimización local.
+
+La búsqueda local aplica tres movimientos usando política first-improvement,
+que significa que aplica el primer movimiento que encuentre que mejore:
+
+- Relocate: mueve un cliente de su ruta actual a otra ruta, posiblemente
+  en otro depósito. Prueba todas las posiciones posibles.
+- Swap: intercambia dos clientes que están en rutas diferentes.
+- 2-opt: invierte un segmento dentro de la misma ruta para eliminar cruces
+  de caminos.
+
+El proceso se repite hasta llegar a un óptimo local donde ningún movimiento
+de estos tres mejora la solución. Ese individuo 'educado' es el que se
+presenta como candidato para entrar a la población."
+
+--- BPD ---
+
+"[SEÑALAR bloque 'PM — Control de Diversidad BPD']
+
+Aquí entra la parte más original del MA|PM: el control de diversidad.
+En los algoritmos genéticos clásicos, la población suele converger a un
+grupo de soluciones muy similares, lo que se llama pérdida de diversidad
+o 'convergencia prematura'. El PM — Population Management — lo evita.
+
+Se usa la Broken Pairs Distance, o BPD. Para dos soluciones A y B, la BPD
+cuenta cuántos pares de clientes adyacentes en A no aparecen como adyacentes
+en B.
+
+El triángulo en la fórmula es la diferencia simétrica de conjuntos: los pares
+que están en A pero no en B, más los que están en B pero no en A.
+
+Un hijo SOLO entra a la población si su BPD respecto a TODOS los individuos
+existentes es mayor o igual a Delta — el umbral de diversidad.
+
+Si hay demasiados rechazos consecutivos porque todos los candidatos son muy
+similares a los que ya existen, Delta se relaja: Delta se actualiza al máximo
+entre 1 y Delta menos 1. Así el algoritmo no se queda trabado.
+
+[SEÑALAR bloque 'Flujo del algoritmo']
+
+El flujo completo es:
+1. Inicializar la población P con soluciones generadas por el algoritmo de
+   Savings y otras aleatorias.
+2. Loop: seleccionar dos padres por torneo, aplicar OX, decodificar con Split,
+   aplicar búsqueda local, verificar BPD e insertar si pasa el filtro.
+3. Si el algoritmo se estanca demasiado tiempo sin aceptar soluciones,
+   se reinsertan los mejores individuos y se refresca la población.
+4. El criterio de parada es NbAcc mayor a MaxNbAcc, donde NbAcc cuenta
+   cuántos individuos han sido aceptados en total.
+
+[SEÑALAR texto de parámetros]
+
+Para n=20 clientes y m=5 depósitos, los parámetros son:
+mu = 6 individuos en la población — mu es el tamaño poblacional.
+MaxNbAcc = 250 aceptaciones máximas antes de parar.
+Delta máximo = 12, el umbral de diversidad inicial."
+
+--------------------------------------------------------------------------------
+DIAPOSITIVA 6 — RESULTADOS EXPERIMENTALES Y CONCLUSIONES
+12:30 a 15:00  (~2 minutos 30 segundos)
+--------------------------------------------------------------------------------
+
+[Aparece la tabla de validación, la de benchmark y los bloques de conclusión]
+
+"Finalmente, los resultados experimentales."
+
+--- Tabla de validación ---
+
+"[SEÑALAR tabla izquierda superior 'Validación exacta']
+
+Primero validamos que nuestras implementaciones son correctas comparando
+contra un algoritmo de fuerza bruta exacto — que garantiza el óptimo absoluto
+pero solo es viable para instancias muy pequeñas.
+
+Usamos tres instancias propias con 10 y 12 clientes. En los tres casos,
+ambos algoritmos encontraron exactamente el mismo costo que la fuerza bruta.
+El color verde indica que coinciden con el óptimo exacto. El gap — que es
+la diferencia porcentual respecto al óptimo — fue 0% en todos los casos.
+
+Esto confirma que nuestras implementaciones son correctas: ambos algoritmos
+encuentran soluciones óptimas cuando la instancia es lo suficientemente
+pequeña para que el óptimo sea alcanzable."
+
+--- Tabla de benchmark ---
+
+"[SEÑALAR tabla inferior 'Benchmark Prodhon']
+
+Luego probamos con las 30 instancias del benchmark Prodhon, que es el
+conjunto estándar de la literatura para el LRP. Estas instancias tienen
+BKS — Best Known Solution, la mejor solución conocida en la literatura.
+
+La columna 'Victorias' muestra cuántas instancias de cada escala ganó cada
+algoritmo — esto es, en cuántas obtuvo el menor costo.
+
+[SEÑALAR fila n=20]
+Para n=20 clientes: MA|PM gana 3 de 4 instancias. Son instancias pequeñas
+donde hay tiempo para explorar el espacio en profundidad.
+
+[SEÑALAR fila n=50]
+Para n=50: empate técnico 4 a 4. Ambos son competitivos a esta escala.
+
+[SEÑALAR fila n=100]
+Para n=100: ALNS gana 11 de 12. El MA|PM tarda entre 100 y 300 segundos
+por instancia, mientras que ALNS resuelve en 1 a 3 segundos.
+
+[SEÑALAR fila n=200]
+Para n=200: ALNS gana las 6 de 6. El MA|PM tarda entre 1,000 y 2,500
+segundos, más de media hora por instancia. ALNS lo resuelve en 6 a 13 segundos.
+
+En el total: ALNS 22, MA|PM 8 — sobre 30 instancias."
+
+--- Bloques de conclusión ---
+
+"[SEÑALAR bloque verde MA|PM]
+¿Por qué gana MA|PM en instancias pequeñas? Porque el Split encuentra la
+partición óptima del Giant Tour, y la búsqueda local refina cada individuo.
+Con poblaciones pequeñas n=20, el espacio de soluciones es manejable y
+MA|PM lo explora en profundidad.
+
+[SEÑALAR bloque rojo ALNS]
+¿Por qué gana ALNS en instancias grandes? Porque cada iteración es muy rápida:
+destruir y reparar es O(n log n) aproximadamente. Con n=200, ALNS puede
+hacer decenas de miles de iteraciones en 10 segundos. El MA|PM en cambio
+gasta casi todo su tiempo en la búsqueda local de cada individuo, que se
+vuelve prohibitivamente costosa.
+
+[SEÑALAR bloque azul Conclusión]
+Las cuatro conclusiones clave:
+Primero: gap 0% en validación — la implementación es correcta.
+Segundo: MA|PM es la mejor opción para instancias pequeñas, hasta n=20.
+Tercero: ALNS domina claramente a partir de n=100.
+Cuarto: la elección del algoritmo depende del tamaño de la instancia
+y del tiempo de cómputo disponible. No hay un ganador absoluto.
+
+Eso es todo. Gracias."
+
+--------------------------------------------------------------------------------
+TIEMPOS RESUMEN
+--------------------------------------------------------------------------------
+Portada:                     0:00 -  0:30  (30 seg)
+ALNS Mecanismo:              0:30 -  4:00  (3 min 30 seg)
+ALNS Operadores:             4:00 -  7:00  (3 min)
+MA|PM Representación/Split:  7:00 - 10:00  (3 min)
+MA|PM Evolución/Diversidad: 10:00 - 12:30  (2 min 30 seg)
+Resultados y Conclusiones:  12:30 - 15:00  (2 min 30 seg)
+TOTAL:                                      15 min
+================================================================================
